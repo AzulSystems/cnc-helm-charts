@@ -1,0 +1,16 @@
+apiVersion: v1
+entries:
+  prime-cnc:
+  - apiVersion: v2
+    created: "2022-05-06T20:05:06.630379179Z"
+    dependencies:
+    - condition: monitoring.enabled
+      name: grafana
+      repository: https://grafana.github.io/helm-charts
+      version: 6.18.0
+    digest: 01e5a95b5d5786193d78d482fd5666a41edac5832da1bea27ed0e7f556dfc48f
+    name: prime-cnc
+    urls:
+    - https://azulsystems.github.io/cnc-helm-charts/prime-cnc-1.3.0.tgz
+    version: 1.3.0
+generated: "2022-05-06T20:05:06.622300256Z"
