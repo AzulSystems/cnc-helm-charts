@@ -1,0 +1,17 @@
+---
+autoscaler: false
+
+storage:
+  resources:
+
+gateway:
+  resources:
+
+compileBroker:
+  resources:
+
+cache:
+  resources:
+
+db:
+  resources:

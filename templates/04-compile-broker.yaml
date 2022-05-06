@@ -1,0 +1,162 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compile-broker-nc-config
+data:
+  nc-config.yml: |
+     hazelcast-client:
+        cluster-name: cloud-native-compiler
+        near-cache:
+          vmstatecache:
+             invalidate-on-change: true
+             time-to-live-seconds: 60
+             eviction:
+                eviction-policy: LRU
+                max-size-policy: ENTRY_COUNT
+                size: 10000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compile-broker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: compile-broker
+spec:
+  replicas: {{ include "sizing.compileBroker.replicas" . }}
+  selector:
+    matchLabels:
+      app: compile-broker
+  template:
+    metadata:
+      labels:
+        app: compile-broker
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      containers:
+      - name: compile-broker
+        image: {{ .Values.registry.cnc }}/cnc-compile-broker:{{ .Values.version }}
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: QUARKUS_DATASOURCE_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: mariadb-username
+          - name: QUARKUS_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: mariadb-password
+          - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: minio-accesskey
+          - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: minio-secretkey
+          - name: SERVER_ADDRESS
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+        args:
+        - "-XX:+ExitOnOutOfMemoryError"
+        - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
+        - "-Dquarkus.s3.endpoint-override=http://storage:9000"
+        - "-Dquarkus.s3.aws.region=us-west-2"
+        - "-Dquarkus.s3.aws.credentials.type=static"
+        - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul"
+        - "-Dcompiler.parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}"
+        - "-Dhazelcast.client.config=/var/lib/cnc-broker/etc-override/nc-config.yml"
+        - "-Dquarkus.flyway.migrate-at-start=false"
+{{- if .Values.codeCache }}
+        - "-Dcodecache.enabled={{- .Values.codeCache.enabled }}"
+{{- end }}
+        ports:
+        - containerPort: 8080
+          name: http-endpoint
+        {{- if .Values.compileBroker.resources }}
+        resources: {{- .Values.compileBroker.resources | toYaml | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: compile-broker-nc-config
+          mountPath: "/var/lib/cnc-broker/etc-override"
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: http-endpoint
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: http-endpoint
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: compile-broker-nc-config
+        configMap:
+           name: compile-broker-nc-config
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - compile-broker
+              topologyKey: "kubernetes.io/hostname"
+{{- if .Values.compileBroker.nodeSelector }}
+      nodeSelector: {{- .Values.compileBroker.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compile-broker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: compile-broker
+spec:
+  type: ClusterIP
+  ports:
+    - port: 50051
+      protocol: TCP
+      name: grpc-server
+  selector:
+    app: compile-broker
+
+{{- if and .Values.autoscaler .Values.compileBroker.autoscaler.enabled}}
+---
+# Dependence on k8s metric-server
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: compile-broker
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: compile-broker
+  minReplicas: {{ include "sizing.compileBroker.minReplicas" . }}
+  maxReplicas: {{ include "sizing.compileBroker.maxReplicas" . }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+{{- end }}

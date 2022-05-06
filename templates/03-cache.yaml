@@ -1,0 +1,139 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-config
+  namespace: {{ .Release.Namespace }}
+data:
+  cache.yaml: |
+    hazelcast:
+      cluster-name: cloud-native-compiler
+      map:
+        default:
+          backup-count: 0
+          async-backup-count: 0
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: USED_HEAP_PERCENTAGE
+            size: 65
+      multimap:
+        default:
+          backup-count: 0
+          async-backup-count: 1
+          value-collection-type: SET
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: USED_HEAP_PERCENTAGE
+            size: 5
+      network:
+        join:
+          auto-detection:
+            enabled: false
+          multicast:
+            enabled: false
+          kubernetes:
+            enabled: true
+            service-dns: cache.{{ .Release.Namespace }}.svc.{{ .Values.clusterName }}
+      properties:
+        hazelcast.partition.max.parallel.migrations: 2
+        hazelcast.partition.count: 2711
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cache
+spec:
+  replicas: {{ include "sizing.cache.replicas" . }}
+  serviceName: cache
+  selector:
+    matchLabels:
+      app: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+      - name: cache
+        image: {{ .Values.registry.dockerhubMirror }}hazelcast/hazelcast:{{ .Values.cache.version }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5701
+          name: ch-server
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: "JAVA_OPTS"
+          value: "-Dhazelcast.config=/data/cache/cache.yaml -Dhazelcast.shutdownhook.policy=GRACEFUL -Dhazelcast.shutdownhook.enabled=true -Dhazelcast.graceful.shutdown.max.wait=300 -XX:+ExitOnOutOfMemoryError"
+        - name: "PROMETHEUS_PORT"
+          value: "9090"
+        volumeMounts:
+        - name: cache-storage
+          mountPath: /data/cache
+        {{- if .Values.cache.resources }}
+        resources: {{- .Values.cache.resources | toYaml | nindent 10 }}
+        {{- end }}
+      terminationGracePeriodSeconds: 300
+      volumes:
+      - name: cache-storage
+        configMap:
+          name: cache-config
+{{- if .Values.cache.nodeSelector }}
+      nodeSelector: {{- .Values.cache.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cache
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 5701
+      protocol: TCP
+      name: cache-server
+  selector:
+    app: cache
+
+{{- if and .Values.autoscaler .Values.cache.autoscaler.enabled}}
+---
+# Dependence on k8s metric-server
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cache
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: cache
+  minReplicas: {{ include "sizing.cache.minReplicas" . }}
+  maxReplicas: {{ include "sizing.cache.maxReplicas" . }}
+  metrics:
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 65
+  - type: Resource
+    resource:
+      name: memory 
+      target:
+        type: AverageValue 
+        averageValue: 20Gi
+{{- end }}
