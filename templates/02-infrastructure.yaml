@@ -6,10 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 type: Opaque
 data:
-  minio-accesskey: {{ .Values.storage.accesskey | b64enc }}
-  minio-secretkey: {{ .Values.storage.secretkey | b64enc }}
-  mariadb-password: {{ .Values.db.password | b64enc }}
-  mariadb-username: {{ .Values.db.username | b64enc }}
+  minio-accesskey: {{ .Values.secrets.storage.accesskey | b64enc }}
+  minio-secretkey: {{ .Values.secrets.storage.secretkey | b64enc }}
+  mariadb-password: {{ .Values.secrets.db.password | b64enc }}
+  mariadb-username: {{ .Values.secrets.db.username | b64enc }}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -31,8 +31,8 @@ spec:
     spec:
       containers:
         - name: storage
-          image: {{ .Values.registry.cnc }}/cnc-storage:{{ .Values.version }}
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.registry.cnc }}/cnc-storage:{{ .Values.version }}{{ .Values.storage.versionSuffix }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           env:
             - name: MINIO_ACCESS_KEY
               valueFrom:
@@ -99,23 +99,37 @@ data:
       create index compilation_index_vmid_idx on compilation_index(vm_id);
   create_code_cache_tables.sql: |
       create table code_store (
-        item_id serial primary key,
+        item_id varchar(225) primary key,
         comp_hash bigint not null,
-        vm_id varchar(255) not null,
-        code_delivery mediumblob not null,
-        options mediumblob not null
+        obj_id bigint not null default 0,
+        obj_file_size bigint not null default 0,
+        hash_priority integer not null default 0,
+        vm_id varchar(225) not null,
+        code_delivery mediumblob not null compressed,
+        options mediumblob not null,
+        create_time timestamp not null default current_timestamp
       );
-      create index comp_hash_idx on code_store (comp_hash);
       create table dependency_store (
-        vm_id varchar(255) not null,
+        vm_id varchar(225) not null,
         msg_id integer not null,
-        vm_response mediumblob not null,
+        vm_response mediumblob not null compressed,
         primary key( vm_id, msg_id )
       );
-  support_multihash.sql: |
-      alter table code_store add column hash_priority integer not null default 0 after comp_hash;
-      drop index comp_hash_idx on code_store;
       create index comp_hash_idx on code_store (comp_hash, hash_priority);
+      create index all_cache_item_idx on code_store (comp_hash, obj_id, obj_file_size);
+      create table obj_file_store (
+        obj_id bigint not null primary key,
+        obj_file mediumblob not null compressed
+      );
+      create table merged_dependency (
+        primary_item_id varchar(255) not null,
+        secondary_vm_id varchar(255) not null,
+        primary key(primary_item_id, secondary_vm_id)
+      );
+      create table access_table (
+        item_id varchar(225) primary key,
+        access_time timestamp
+      );
 
 ---
 apiVersion: apps/v1
@@ -141,7 +155,7 @@ spec:
       containers:
       - name: db
         image: {{ .Values.registry.dockerhubMirror }}mariadb:{{ .Values.db.version }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
           - name: "MYSQL_DATABASE"
             value: "azul"
@@ -159,7 +173,11 @@ spec:
             value: "true"
         args:
           - "--max_allowed_packet=256M"
-          - "--max_connections=2000"
+          - "--max_connections=6000"
+          - "--event-scheduler=ON"
+          - "--query_cache_type=1"
+          - "--query_cache_limit=10485760"
+          - "--query_cache_size=1048576000"
         ports:
           - containerPort: 3306
         {{- if .Values.db.resources }}
@@ -175,11 +193,9 @@ spec:
             name: initdb
             items:
             - key: "create_compilation_index_table.sql"
-              path: "create_compilation_index_table.sql"
+              path: "1_create_compilation_index_table.sql"
             - key: "create_code_cache_tables.sql"
-              path: "create_code_cache_tables.sql"
-            - key: "support_multihash.sql"
-              path: "support_multihash.sql"
+              path: "2_create_code_cache_tables.sql"
 {{- if .Values.db.nodeSelector }}
       nodeSelector: {{- .Values.db.nodeSelector | toYaml | nindent 8 }}
 {{- end }}
@@ -265,8 +281,8 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: {{ .Values.registry.cnc }}/cnc-gateway:{{ .Values.version }}
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.registry.cnc }}/cnc-gateway:{{ .Values.version }}{{ .Values.gateway.versionSuffix }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
           - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
             valueFrom:
@@ -287,11 +303,9 @@ spec:
         - "-Dquarkus.s3.endpoint-override=http://storage:9000"
         - "-Dquarkus.s3.aws.region=us-west-2"
         - "-Dquarkus.s3.aws.credentials.type=static"
-        - "-Dmp.messaging.emitter.default-buffer-size=10000"
         - "-Dcompilation.limit.per.vm={{ .Values.compilations.parallelism.limitPerVm }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-gateway/etc-override/hazelcast-config.yml"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
-        - "-Dengine-verifier.devkey.enabled=true"
 {{- if .Values.ssl.enabled }}
         - "-Dquarkus.grpc.server.ssl.certificate=/opt/ssl/cert.pem"
         - "-Dquarkus.grpc.server.ssl.key=/opt/ssl/key.pem"
@@ -300,6 +314,14 @@ spec:
         - "-Dquarkus.grpc.server.ssl.trust-store=/opt/ssl/client-truststore.p12"
         - "-Dquarkus.grpc.server.ssl.trust-store-password={{ .Values.ssl.mtls.password }}"
 {{- end }}
+{{- end }}
+{{- if .Values.gateway.extraArguments }}
+        {{- .Values.gateway.extraArguments | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.gateway.extraArgumentsMap }}
+    {{- range $key, $val := .Values.gateway.extraArgumentsMap }}
+        - -D{{ $key }}={{ $val }}
+    {{- end }}
 {{- end }}
         ports:
         - containerPort: 8080
@@ -370,7 +392,7 @@ spec:
     app: gateway
 {{- if and .Values.autoscaler .Values.gateway.autoscaler.enabled}}
 ---
-# Dependence on k8s metric-server
+# Dependence on metric-server
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:

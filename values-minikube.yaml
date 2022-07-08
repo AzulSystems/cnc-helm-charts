@@ -1,4 +1,11 @@
 ---
+###################################################################################################
+# The rest of the settings are for reference only. You should not override any of these settings. #
+###################################################################################################
+
+simpleSizing:
+  disabled: true
+
 autoscaler: false
 
 storage:

@@ -64,7 +64,7 @@ spec:
       containers:
       - name: cache
         image: {{ .Values.registry.dockerhubMirror }}hazelcast/hazelcast:{{ .Values.cache.version }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         ports:
         - containerPort: 5701
           name: ch-server
@@ -110,7 +110,7 @@ spec:
 
 {{- if and .Values.autoscaler .Values.cache.autoscaler.enabled}}
 ---
-# Dependence on k8s metric-server
+# Dependence on metric-server
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -132,8 +132,8 @@ spec:
         averageUtilization: 65
   - type: Resource
     resource:
-      name: memory 
+      name: memory
       target:
-        type: AverageValue 
+        type: AverageValue
         averageValue: 20Gi
 {{- end }}

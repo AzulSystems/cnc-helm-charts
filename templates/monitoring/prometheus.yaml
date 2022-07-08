@@ -72,6 +72,7 @@ spec:
       initContainers:
         - name: chown
           image: docker.io/alpine:3.9
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           command: ["chown", "-R", "65534:65534", "/var/lib/prometheus"]
           volumeMounts:
             - name: data
@@ -79,6 +80,7 @@ spec:
       containers:
         - name: prometheus
           image: quay.io/prometheus/prometheus:v2.19.3
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
             - --web.listen-address=0.0.0.0:9090
             - --config.file=/etc/prometheus/prometheus.yaml
@@ -204,6 +206,7 @@ spec:
       containers:
       - name: node-exporter
         image: quay.io/prometheus/node-exporter:v1.0.1
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         args:
           - --path.procfs=/host/proc
           - --path.sysfs=/host/sys
@@ -420,6 +423,7 @@ spec:
       containers:
       - name: kube-state-metrics
         image: quay.io/coreos/kube-state-metrics:v1.9.7
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         ports:
         - name: metrics
           containerPort: 8080

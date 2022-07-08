@@ -1,6 +1,9 @@
 ---
 apiVersion: v2
 name: prime-cnc
+description: "Azul Intelligence Cloud: Cloud Native Compiler"
+home: https://www.azul.com/products/intelligence-cloud/cloud-native-compiler/
+icon: https://www.azul.com/wp-content/themes/azul/dist/img/logo.svg
 version: "1"
 
 dependencies:

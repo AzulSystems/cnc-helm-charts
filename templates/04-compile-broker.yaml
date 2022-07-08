@@ -14,7 +14,7 @@ data:
              eviction:
                 eviction-policy: LRU
                 max-size-policy: ENTRY_COUNT
-                size: 10000
+                size: 500000
 
 ---
 apiVersion: apps/v1
@@ -41,8 +41,8 @@ spec:
     spec:
       containers:
       - name: compile-broker
-        image: {{ .Values.registry.cnc }}/cnc-compile-broker:{{ .Values.version }}
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.registry.cnc }}/cnc-compile-broker:{{ .Values.version }}{{ .Values.compileBroker.versionSuffix }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
           - name: QUARKUS_DATASOURCE_USERNAME
             valueFrom:
@@ -70,16 +70,25 @@ spec:
                 fieldPath: status.podIP
         args:
         - "-XX:+ExitOnOutOfMemoryError"
+        - "-XX:MaxRAMPercentage=80"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
         - "-Dquarkus.s3.endpoint-override=http://storage:9000"
         - "-Dquarkus.s3.aws.region=us-west-2"
         - "-Dquarkus.s3.aws.credentials.type=static"
-        - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul"
+        - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul?useBulkStmt=true&rewriteBatchedStatements=true&useCompression=true"
         - "-Dcompiler.parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-broker/etc-override/nc-config.yml"
         - "-Dquarkus.flyway.migrate-at-start=false"
 {{- if .Values.codeCache }}
         - "-Dcodecache.enabled={{- .Values.codeCache.enabled }}"
+{{- end }}
+{{- if .Values.compileBroker.extraArguments }}
+        {{- .Values.compileBroker.extraArguments | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.compileBroker.extraArgumentsMap }}
+    {{- range $key, $val := .Values.compileBroker.extraArgumentsMap }}
+        - -D{{ $key }}={{ $val }}
+    {{- end }}
 {{- end }}
         ports:
         - containerPort: 8080
@@ -106,16 +115,6 @@ spec:
       - name: compile-broker-nc-config
         configMap:
            name: compile-broker-nc-config
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - compile-broker
-              topologyKey: "kubernetes.io/hostname"
 {{- if .Values.compileBroker.nodeSelector }}
       nodeSelector: {{- .Values.compileBroker.nodeSelector | toYaml | nindent 8 }}
 {{- end }}
@@ -139,7 +138,7 @@ spec:
 
 {{- if and .Values.autoscaler .Values.compileBroker.autoscaler.enabled}}
 ---
-# Dependence on k8s metric-server
+# Dependence on metric-server
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:

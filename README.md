@@ -23,7 +23,7 @@ helm repo update
 ```bash
 kubectl create namespace compiler
 ```
-5. Create the `values-override.yaml` file in your local directory. 
+5. Create the `values-override.yaml` file in your local directory.
 6. If you have a custom cluster domain name, you will need to provide it:
 ```yaml
 clusterName: "example.org"
