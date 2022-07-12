@@ -2,14 +2,14 @@ apiVersion: v1
 entries:
   prime-cnc:
   - apiVersion: v2
-    created: "2022-07-11T14:40:43.595757507Z"
+    created: "2022-07-12T07:57:10.030274324Z"
     dependencies:
     - condition: monitoring.enabled
       name: grafana
       repository: https://grafana.github.io/helm-charts
       version: 6.18.0
     description: 'Azul Intelligence Cloud: Cloud Native Compiler'
-    digest: 6e9cb7965d3c9fd251c83ce6f57254622faf9daf97ce1ffed771e43f4c97a188
+    digest: 2c060fc1a79e49b7cba01fa4e63811314ca8092a7be384a3dee00c0b5869b578
     home: https://www.azul.com/products/intelligence-cloud/cloud-native-compiler/
     icon: https://www.azul.com/wp-content/themes/azul/dist/img/logo.svg
     name: prime-cnc
@@ -17,7 +17,7 @@ entries:
     - https://azulsystems.github.io/cnc-helm-charts/prime-cnc-1.4.0.tgz
     version: 1.4.0
   - apiVersion: v2
-    created: "2022-07-11T14:40:43.589787048Z"
+    created: "2022-07-12T07:57:10.025356794Z"
     dependencies:
     - condition: monitoring.enabled
       name: grafana
@@ -32,7 +32,7 @@ entries:
     - https://azulsystems.github.io/cnc-helm-charts/prime-cnc-1.4.0-rc1.tgz
     version: 1.4.0-rc1
   - apiVersion: v2
-    created: "2022-07-11T14:40:43.581159546Z"
+    created: "2022-07-12T07:57:10.021050614Z"
     dependencies:
     - condition: monitoring.enabled
       name: grafana
@@ -43,4 +43,4 @@ entries:
     urls:
     - https://azulsystems.github.io/cnc-helm-charts/prime-cnc-1.3.0.tgz
     version: 1.3.0
-generated: "2022-07-11T14:40:43.575336837Z"
+generated: "2022-07-12T07:57:10.014331727Z"
