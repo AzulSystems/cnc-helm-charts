@@ -57,11 +57,24 @@ spec:
           {{- if .Values.storage.resources }}
           resources: {{- .Values.storage.resources | toYaml | nindent 12 }}
           {{- end }}
+{{- if not .Values.storage.persistentDataVolume.enabled }}
       volumes:
         - name: data
           emptyDir: {}
+{{- end }}
 {{- if .Values.storage.nodeSelector }}
       nodeSelector: {{- .Values.storage.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.storage.persistentDataVolume.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.storage.persistentDataVolume.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.persistentDataVolume.size }}
 {{- end }}
 
 ---
@@ -93,43 +106,50 @@ data:
         vm_id varchar(255),
         event_type varchar(255) not null,
         method_name text,
-        data mediumblob not null
+        data mediumblob not null,
+        create_time timestamp not null default current_timestamp
       );
       create index compilation_index_compid_idx on compilation_index(compilation_id);
       create index compilation_index_vmid_idx on compilation_index(vm_id);
+      create index compilation_index_create_time on compilation_index(create_time);
   create_code_cache_tables.sql: |
       create table code_store (
         item_id varchar(225) primary key,
         comp_hash bigint not null,
-        obj_id bigint not null default 0,
         obj_file_size bigint not null default 0,
         hash_priority integer not null default 0,
         vm_id varchar(225) not null,
-        code_delivery mediumblob not null compressed,
+        code_delivery mediumblob compressed not null,
         options mediumblob not null,
+        cpu_time bigint not null default 0,
+        wall_time bigint not null default 0,
+        vm_state_count integer not null default 0,
         create_time timestamp not null default current_timestamp
       );
-      create table dependency_store (
-        vm_id varchar(225) not null,
-        msg_id integer not null,
-        vm_response mediumblob not null compressed,
-        primary key( vm_id, msg_id )
-      );
       create index comp_hash_idx on code_store (comp_hash, hash_priority);
-      create index all_cache_item_idx on code_store (comp_hash, obj_id, obj_file_size);
+      create index all_cache_item_idx on code_store (comp_hash, item_id, obj_file_size);
       create table obj_file_store (
-        obj_id bigint not null primary key,
-        obj_file mediumblob not null compressed
-      );
-      create table merged_dependency (
-        primary_item_id varchar(255) not null,
-        secondary_vm_id varchar(255) not null,
-        primary key(primary_item_id, secondary_vm_id)
+        obj_id varchar(255) not null primary key,
+        obj_file mediumblob compressed not null
       );
       create table access_table (
         item_id varchar(225) primary key,
         access_time timestamp
       );
+      create table dependency_store_packed (
+        item_id varchar(225) not null primary key,
+        vm_responses mediumblob compressed not null
+      );
+      create table merged_ids_by_primary (
+        item_id varchar(225) not null primary key,
+        merged_ids mediumtext not null
+      );
+      create table bucket_by_hash (
+        comp_hash bigint not null primary key,
+        items mediumtext not null,
+        access_time timestamp not null default current_timestamp    
+      );
+      create index bucket_access_time on bucket_by_hash (access_time);
 
 ---
 apiVersion: apps/v1
@@ -172,6 +192,9 @@ spec:
           - name: "MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"
             value: "true"
         args:
+          - "--innodb_data_file_path=azuldb:150G"
+          - "--innodb_file_per_table=OFF"
+          - "--innodb-defragment=1"
           - "--max_allowed_packet=256M"
           - "--max_connections=6000"
           - "--event-scheduler=ON"
@@ -187,6 +210,10 @@ spec:
           - name: config
             mountPath: "/docker-entrypoint-initdb.d/"
             readOnly: true
+{{- if .Values.db.persistentDataVolume.enabled }}
+          - name: data
+            mountPath: "/var/lib/mysql"
+{{- end }}
       volumes:
         - name: config
           configMap:
@@ -198,6 +225,17 @@ spec:
               path: "2_create_code_cache_tables.sql"
 {{- if .Values.db.nodeSelector }}
       nodeSelector: {{- .Values.db.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.db.persistentDataVolume.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.db.persistentDataVolume.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.db.persistentDataVolume.size }}
 {{- end }}
 
 ---
@@ -227,7 +265,15 @@ metadata:
 data:
   hazelcast-config.yml: |
     hazelcast-client:
-       cluster-name: cloud-native-compiler
+      cluster-name: cloud-native-compiler
+      near-cache:
+        vmstatecache:
+          invalidate-on-change: true
+          time-to-live-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
 
 {{- if and .Values.ssl.enabled (eq "" .Values.ssl.secretName) }}
 ---
@@ -300,12 +346,15 @@ spec:
                 fieldPath: status.podIP
         args:
         - "-XX:+ExitOnOutOfMemoryError"
+        - "-XX:MaxRAMPercentage=80"
         - "-Dquarkus.s3.endpoint-override=http://storage:9000"
         - "-Dquarkus.s3.aws.region=us-west-2"
         - "-Dquarkus.s3.aws.credentials.type=static"
         - "-Dcompilation.limit.per.vm={{ .Values.compilations.parallelism.limitPerVm }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-gateway/etc-override/hazelcast-config.yml"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
+        - "-Dquarkus.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
+        - "-Dinternal.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
 {{- if .Values.ssl.enabled }}
         - "-Dquarkus.grpc.server.ssl.certificate=/opt/ssl/cert.pem"
         - "-Dquarkus.grpc.server.ssl.key=/opt/ssl/key.pem"

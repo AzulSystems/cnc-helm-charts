@@ -5,16 +5,53 @@ metadata:
   name: compile-broker-nc-config
 data:
   nc-config.yml: |
-     hazelcast-client:
-        cluster-name: cloud-native-compiler
-        near-cache:
-          vmstatecache:
-             invalidate-on-change: true
-             time-to-live-seconds: 60
-             eviction:
-                eviction-policy: LRU
-                max-size-policy: ENTRY_COUNT
-                size: 500000
+    hazelcast-client:
+      cluster-name: cloud-native-compiler
+      serialization:
+        portable-version: 0
+        portable-factories:
+          - factory-id: 1
+            class-name: com.azul.cc.hazelcast.PortableFactoryImpl
+      near-cache:
+        bucketsByCompilationHashDBCache:
+          invalidate-on-change: true
+          time-to-live-seconds: 300
+          max-idle-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        vmstatecache:
+          invalidate-on-change: true
+          time-to-live-seconds: 300
+          max-idle-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        unifiedDependencyDBCache:
+          invalidate-on-change: true
+          time-to-live-seconds: 300
+          max-idle-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        cacheItemDBCache:
+          invalidate-on-change: true
+          time-to-live-seconds: 300
+          max-idle-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        objFileDBCache:
+          invalidate-on-change: false
+          max-idle-seconds: 600
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
 
 ---
 apiVersion: apps/v1

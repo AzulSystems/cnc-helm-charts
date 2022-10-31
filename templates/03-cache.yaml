@@ -5,26 +5,11 @@ metadata:
   name: cache-config
   namespace: {{ .Release.Namespace }}
 data:
-  cache.yaml: |
+  cluster-config.yaml: |
     hazelcast:
+      import:
+      - file:///home/cc/hazelcast/cache.yaml
       cluster-name: cloud-native-compiler
-      map:
-        default:
-          backup-count: 0
-          async-backup-count: 0
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: USED_HEAP_PERCENTAGE
-            size: 65
-      multimap:
-        default:
-          backup-count: 0
-          async-backup-count: 1
-          value-collection-type: SET
-          eviction:
-            eviction-policy: LRU
-            max-size-policy: USED_HEAP_PERCENTAGE
-            size: 5
       network:
         join:
           auto-detection:
@@ -34,9 +19,6 @@ data:
           kubernetes:
             enabled: true
             service-dns: cache.{{ .Release.Namespace }}.svc.{{ .Values.clusterName }}
-      properties:
-        hazelcast.partition.max.parallel.migrations: 2
-        hazelcast.partition.count: 2711
 
 ---
 apiVersion: apps/v1
@@ -48,6 +30,7 @@ metadata:
     app: cache
 spec:
   replicas: {{ include "sizing.cache.replicas" . }}
+  podManagementPolicy: Parallel
   serviceName: cache
   selector:
     matchLabels:
@@ -59,22 +42,49 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
+        prometheus.io/path: "/q/metrics"
+        prometheus.io/port: "8080"
     spec:
       containers:
       - name: cache
-        image: {{ .Values.registry.dockerhubMirror }}hazelcast/hazelcast:{{ .Values.cache.version }}
+        image: {{ .Values.registry.cnc }}/cnc-hazelcast:{{ .Values.version }}{{ .Values.cache.versionSuffix }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         ports:
         - containerPort: 5701
           name: ch-server
-        - containerPort: 9090
+        - containerPort: 8080
           name: metrics
         env:
-        - name: "JAVA_OPTS"
-          value: "-Dhazelcast.config=/data/cache/cache.yaml -Dhazelcast.shutdownhook.policy=GRACEFUL -Dhazelcast.shutdownhook.enabled=true -Dhazelcast.graceful.shutdown.max.wait=300 -XX:+ExitOnOutOfMemoryError"
-        - name: "PROMETHEUS_PORT"
-          value: "9090"
+        - name: QUARKUS_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: infrastructure-credentials
+              key: mariadb-username
+        - name: QUARKUS_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: infrastructure-credentials
+              key: mariadb-password
+        - name: "WAIT_FOR_HOST"
+          value: "cache-0.cache.{{ .Release.Namespace }}.svc.{{ .Values.clusterName }}"
+        args:
+          - "-XX:MaxRAMPercentage=80"
+          - "-XX:+ExitOnOutOfMemoryError"
+          - "-Dhazelcast.config=/data/cache/cluster-config.yaml"
+          - "-Dhz.jet.enabled=true"
+          - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul?useBulkStmt=true&rewriteBatchedStatements=true"
+          - "-Dquarkus.datasource.jdbc.max-size=100"
+          - "-Dhazelcast.shutdownhook.policy=GRACEFUL"
+          - "-Dhazelcast.shutdownhook.enabled=true"
+          - "-Dhazelcast.graceful.shutdown.max.wait=300"
+{{- if .Values.cache.extraArguments }}
+          {{- .Values.cache.extraArguments | toYaml | nindent 10 }}
+{{- end }}
+{{- if .Values.cache.extraArgumentsMap }}
+    {{- range $key, $val := .Values.cache.extraArgumentsMap }}
+          - -D{{ $key }}={{ $val }}
+    {{- end }}
+{{- end }}
         volumeMounts:
         - name: cache-storage
           mountPath: /data/cache
