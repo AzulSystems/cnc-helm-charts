@@ -146,6 +146,7 @@ cache:
 db:
   version: "10.5.12"
   replicas: 1
+  size: "150G"
   resources:
     requests:
       # Do not use non-numerical values such as 200m, otherwise the templating logic will break.

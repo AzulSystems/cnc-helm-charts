@@ -192,7 +192,7 @@ spec:
           - name: "MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"
             value: "true"
         args:
-          - "--innodb_data_file_path=azuldb:150G"
+          - "--innodb_data_file_path=azuldb:{{ .Values.db.size }}"
           - "--innodb_file_per_table=OFF"
           - "--innodb-defragment=1"
           - "--max_allowed_packet=256M"
@@ -353,8 +353,10 @@ spec:
         - "-Dcompilation.limit.per.vm={{ .Values.compilations.parallelism.limitPerVm }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-gateway/etc-override/hazelcast-config.yml"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
+{{- if .Values.gateway.resources }}
         - "-Dquarkus.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
         - "-Dinternal.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
+{{- end}}
 {{- if .Values.ssl.enabled }}
         - "-Dquarkus.grpc.server.ssl.certificate=/opt/ssl/cert.pem"
         - "-Dquarkus.grpc.server.ssl.key=/opt/ssl/key.pem"
