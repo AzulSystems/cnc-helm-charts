@@ -137,3 +137,45 @@ type - one of "gateways", "caches" and "brokers" - indicates which replica amoun
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/* Helper functions for calculating database size from given storage resource limits */}}
+{{- define "_getBytesFromResourceString" -}}
+{{- $sizes := dict "Gi" 1073_741_824 "G" 1000_000_000 "Mi" 1048_576 "M" 1000_000 "Ki" 1024 "K" 1000 "B" 1 -}}
+{{- $suffix := regexFind "[A-Za-z]+" . -}}
+{{- mulf (trimSuffix $suffix . ) (get $sizes $suffix) | int -}}
+{{- end -}}
+
+{{/* get apropriate volume size(persistent or ephemeral) and "reserve" 1G for system on shared ephemeral volume */}}
+{{- define "_getDatabaseVolumeSpaceInB" -}}
+{{- if .Values.db.persistentDataVolume.enabled -}}
+{{- include "_getBytesFromResourceString" .Values.db.persistentDataVolume.size -}}
+{{- else -}}
+{{- sub (include "_getBytesFromResourceString" (get .Values.db.resources.limits "ephemeral-storage")) 1073741824 -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "_getDatabaseSizeInB" -}}
+{{- mulf (include "_getDatabaseVolumeSpaceInB" .) 0.9 | int -}}
+{{- end -}}
+
+{{- define "_getCodecacheEvictionTargetSizeInB" -}}
+{{- mulf (include "_getDatabaseVolumeSpaceInB" .) 0.9 0.6 | int -}}
+{{- end -}}
+
+
+{{/* get appropriate volume size(persistent or ephemeral) and "reserve" 1G for system on shared ephemeral volume */}}
+{{- define "_getProfilesVolumeSpaceInB" -}}
+{{- if .Values.storage.persistentDataVolume.enabled -}}
+{{- include "_getBytesFromResourceString" .Values.storage.persistentDataVolume.size -}}
+{{- else -}}
+{{- sub (include "_getBytesFromResourceString" (get .Values.storage.resources.limits "ephemeral-storage")) 1073741824 -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "_getProfilesWarningSizeInB" -}}
+{{- mulf (include "_getProfilesVolumeSpaceInB" .) 0.9 | int -}}
+{{- end -}}
+
+{{- define "_getProfilesEvictionTargetSizeInB" -}}
+{{- mulf (include "_getProfilesVolumeSpaceInB" .) 0.9 0.6 | int -}}
+{{- end -}}

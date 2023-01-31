@@ -16,7 +16,7 @@ To install Cloud Native Compiler:
 2. Make sure your Helm version is v3.8.0 or later.
 3. Add the Azul Helm repository to your Helm environment:
 ```bash
-helm repo add cnc-helm https://azulsystems.github.com/cnc-helm-charts/
+helm repo add cnc-helm https://azulsystems.github.io/cnc-helm-charts/
 helm repo update
 ```
 4. Create a namespace (i.e. `compiler`) for the CNC service.
@@ -54,4 +54,11 @@ TEST SUITE: None
 10. Verify that all started pods are ready:
 ```bash
 kubectl get all -n compiler
+```
+
+Advanced deployment without compilation feature:
+
+Provide values-disable-compiler.yaml to deploy the CNC service without components responsible for compilation.
+```bash
+helm install compiler cnc-helm/prime-cnc -n readynow-only -f values-override.yaml -f values-disable-compiler.yaml
 ```

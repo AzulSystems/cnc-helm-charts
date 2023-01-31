@@ -112,6 +112,29 @@ data:
       create index compilation_index_compid_idx on compilation_index(compilation_id);
       create index compilation_index_vmid_idx on compilation_index(vm_id);
       create index compilation_index_create_time on compilation_index(create_time);
+  create_profile_info_table.sql: |
+      create table profile_info (
+        vm_id varchar(255) primary key,
+        namespace varchar(255) not null,
+        profile_input_id varchar(255),
+        current_size bigint not null,
+        current_size_stored_on_disk bigint not null,
+        chunk_count bigint not null,
+        start_epoch_millis bigint not null,
+        last_update_epoch_millis bigint not null,
+        last_download_epoch_millis bigint not null,
+        iteration bigint not null,
+        started_from_known_iter tinyint(1) not null,
+        was_truncated tinyint(1) not null,
+        was_completed tinyint(1) not null,
+        excluded tinyint(1) not null,
+        quality varchar(100) not null
+      );
+  create_promoted_profile_table.sql: |
+      create table promoted_profile (
+        namespace varchar(255) primary key,
+        vm_id varchar(255) not null
+      );
   create_code_cache_tables.sql: |
       create table code_store (
         item_id varchar(225) primary key,
@@ -192,7 +215,7 @@ spec:
           - name: "MARIADB_ALLOW_EMPTY_ROOT_PASSWORD"
             value: "true"
         args:
-          - "--innodb_data_file_path=azuldb:{{ .Values.db.size }}"
+          - "--innodb_data_file_path=azuldb:{{ div (include "_getDatabaseSizeInB" .) 1_048_576 }}M"
           - "--innodb_file_per_table=OFF"
           - "--innodb-defragment=1"
           - "--max_allowed_packet=256M"
@@ -223,6 +246,10 @@ spec:
               path: "1_create_compilation_index_table.sql"
             - key: "create_code_cache_tables.sql"
               path: "2_create_code_cache_tables.sql"
+            - key: "create_profile_info_table.sql"
+              path: "3_create_profile_info_table.sql"
+            - key: "create_promoted_profile_table.sql"
+              path: "4_create_promoted_profile_table.sql"
 {{- if .Values.db.nodeSelector }}
       nodeSelector: {{- .Values.db.nodeSelector | toYaml | nindent 8 }}
 {{- end }}
@@ -266,8 +293,28 @@ data:
   hazelcast-config.yml: |
     hazelcast-client:
       cluster-name: cloud-native-compiler
+      serialization:
+        portable-version: 0
+        portable-factories:
+          - factory-id: 1
+            class-name: com.azul.cc.hazelcast.PortableFactoryImpl
       near-cache:
         vmstatecache:
+          invalidate-on-change: true
+          time-to-live-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        profileInfoDBCache:
+          invalidate-on-change: true
+          time-to-live-seconds: 300
+          max-idle-seconds: 60
+          eviction:
+            eviction-policy: LRU
+            max-size-policy: ENTRY_COUNT
+            size: 1000000
+        promotedProfileDBCache:
           invalidate-on-change: true
           time-to-live-seconds: 60
           eviction:
@@ -353,7 +400,9 @@ spec:
         - "-Dcompilation.limit.per.vm={{ .Values.compilations.parallelism.limitPerVm }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-gateway/etc-override/hazelcast-config.yml"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
-{{- if .Values.gateway.resources }}
+        - "-Dpersistentprofile.cleaner.target-size={{ include "_getProfilesEvictionTargetSizeInB" . }}"
+        - "-Dpersistentprofile.cleaner.warning-size={{ include "_getProfilesWarningSizeInB" . }}"
+  {{- if .Values.gateway.resources }}
         - "-Dquarkus.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
         - "-Dinternal.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
 {{- end}}

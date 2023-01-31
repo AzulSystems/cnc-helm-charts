@@ -1,5 +1,5 @@
 ---
-version: "1.5.0"
+version: "1.6.0"
 
 clusterName: "cluster.local"
 
@@ -61,7 +61,7 @@ monitoring:
 compilations:
   parallelism:
     # Maximum concurrent compilation limit per VM (VMs will not send more than this amount at the same time).
-    limitPerVm: 50
+    limitPerVm: 500
     # Maximum amount of parallel compiler engine processes running at the same time per compile broker.
     limitPerCompileBroker: 30
 
@@ -81,7 +81,8 @@ storage:
       cpu: "1"
       memory: "24Gi"
       ephemeral-storage: "200Gi"
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
   # when using persistent data volume make sure to lower ephemeral-storage allocation
   persistentDataVolume:
     enabled: false
@@ -104,7 +105,8 @@ gateway:
       cpu: "7"
       memory: "14Gi"
       ephemeral-storage: "1Gi"
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
   service:
     type: "NodePort"
     # annotations: {}
@@ -125,7 +127,8 @@ compileBroker:
       cpu: "7"
       memory: "28Gi"
       ephemeral-storage: "8Gi"
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
 
 cache:
   replicas: 1
@@ -141,12 +144,12 @@ cache:
     limits:
       cpu: "7"
       memory: "20Gi"
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
 
 db:
   version: "10.5.12"
   replicas: 1
-  size: "150G"
   resources:
     requests:
       # Do not use non-numerical values such as 200m, otherwise the templating logic will break.
@@ -158,12 +161,18 @@ db:
       cpu: "7"
       memory: "28Gi"
       ephemeral-storage: "200Gi"
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
   # when using persistent data volume make sure to lower ephemeral-storage allocation
   persistentDataVolume:
     enabled: false
     size: "200Gi"
     storageClassName: "" # empty string uses default storage class
+
+operator:
+  timeToClearOptimizationBacklog: 120s
+  nodeSelector:
+    kubernetes.io/arch: amd64
 
 grafana:
   fullnameOverride: grafana
@@ -182,9 +191,11 @@ grafana:
     # configmaps labeled with 'grafana_datasource: "1"' will be auto-added
     datasources:
       enabled: true
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
 
 prometheus:
-  # nodeSelector: {}
+  nodeSelector:
+    kubernetes.io/arch: amd64
 
 test: false

@@ -172,27 +172,3 @@ spec:
       name: grpc-server
   selector:
     app: compile-broker
-
-{{- if and .Values.autoscaler .Values.compileBroker.autoscaler.enabled}}
----
-# Dependence on metric-server
-apiVersion: autoscaling/v2beta2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: compile-broker
-  namespace: {{ .Release.Namespace }}
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: compile-broker
-  minReplicas: {{ include "sizing.compileBroker.minReplicas" . }}
-  maxReplicas: {{ include "sizing.compileBroker.maxReplicas" . }}
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-{{- end }}

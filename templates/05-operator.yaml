@@ -1,0 +1,85 @@
+{{- if and .Values.autoscaler .Values.compileBroker.autoscaler.enabled}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cnc-operator
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnc-operator-role
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - list
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnc-operator-role-binding
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: cnc-operator-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: cnc-operator
+    namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: operator
+  template:
+    metadata:
+      labels:
+        app: operator
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      containers:
+        - name: operator
+          image: {{ .Values.registry.cnc }}/cnc-operator:{{ .Values.version }}{{ .Values.operator.versionSuffix }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - -Dbroker.compilation-parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}
+            - -Dbroker.min-replicas={{ include "sizing.compileBroker.minReplicas" . }}
+            - -Dbroker.max-replicas={{ include "sizing.compileBroker.maxReplicas" . }}
+            - -Dbroker.scale-down.stabilization-window=60s
+            - -Dtime-to-clear-backlog={{ .Values.operator.timeToClearOptimizationBacklog}}
+          {{- if .Values.operator.resources }}
+          resources: {{- .Values.operator.resources | toYaml | nindent 12 }}
+          {{- end }}
+      serviceAccountName: cnc-operator
+{{- if .Values.operator.nodeSelector }}
+      nodeSelector: {{- .Values.operator.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+{{- end}}

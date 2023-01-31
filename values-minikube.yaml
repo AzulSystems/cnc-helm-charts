@@ -10,6 +10,14 @@ autoscaler: false
 
 storage:
   resources:
+    requests:
+      cpu:
+      memory:
+      ephemeral-storage: "1Gi"
+    limits:
+      cpu:
+      memory:
+      ephemeral-storage: "1Gi"
 
 gateway:
   resources:
@@ -21,5 +29,12 @@ cache:
   resources:
 
 db:
-  size: "8G"
   resources:
+    requests:
+      cpu:
+      memory:
+      ephemeral-storage: "7Gi"
+    limits:
+      cpu:
+      memory:
+      ephemeral-storage: "7Gi"

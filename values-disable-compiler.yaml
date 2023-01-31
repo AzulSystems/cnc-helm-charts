@@ -1,0 +1,12 @@
+compileBroker:
+  replicas: 0
+  autoscaler:
+    enabled: false
+
+simpleSizing:
+  disabled: true
+
+compilations:
+  parallelism:
+    limitPerVm: 0
+    limitPerCompileBroker: 0

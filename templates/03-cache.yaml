@@ -12,14 +12,10 @@ data:
       cluster-name: cloud-native-compiler
       network:
         join:
-          auto-detection:
-            enabled: false
-          multicast:
-            enabled: false
           kubernetes:
             enabled: true
-            service-dns: cache.{{ .Release.Namespace }}.svc.{{ .Values.clusterName }}
-
+            namespace: {{ .Release.Namespace }}
+            service-name: cache
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -65,8 +61,6 @@ spec:
             secretKeyRef:
               name: infrastructure-credentials
               key: mariadb-password
-        - name: "WAIT_FOR_HOST"
-          value: "cache-0.cache.{{ .Release.Namespace }}.svc.{{ .Values.clusterName }}"
         args:
           - "-XX:MaxRAMPercentage=80"
           - "-XX:+ExitOnOutOfMemoryError"
@@ -77,6 +71,7 @@ spec:
           - "-Dhazelcast.shutdownhook.policy=GRACEFUL"
           - "-Dhazelcast.shutdownhook.enabled=true"
           - "-Dhazelcast.graceful.shutdown.max.wait=300"
+          - "-Dcodecache.eviction.target-size={{ include "_getCodecacheEvictionTargetSizeInB" . }}"
 {{- if .Values.cache.extraArguments }}
           {{- .Values.cache.extraArguments | toYaml | nindent 10 }}
 {{- end }}
@@ -92,6 +87,7 @@ spec:
         resources: {{- .Values.cache.resources | toYaml | nindent 10 }}
         {{- end }}
       terminationGracePeriodSeconds: 300
+      serviceAccountName: cnc-cache
       volumes:
       - name: cache-storage
         configMap:
@@ -134,16 +130,57 @@ spec:
   minReplicas: {{ include "sizing.cache.minReplicas" . }}
   maxReplicas: {{ include "sizing.cache.maxReplicas" . }}
   metrics:
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 65
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: AverageValue
-        averageValue: 20Gi
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 120
+
 {{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cnc-cache
+  namespace: {{ .Release.Namespace }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cnc-cache-role
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cnc-cache-role-binding
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cnc-cache-role
+subjects:
+  - kind: ServiceAccount
+    name: cnc-cache
+    namespace: {{ .Release.Namespace }}

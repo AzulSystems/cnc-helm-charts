@@ -1,35 +1,32 @@
 ---
 cache:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: cnccache
 
 compileBroker:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: cncserver
 
 db:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: cncinfra
 
 gateway:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: cncinfra
 
 storage:
   nodeSelector:
-    kubernetes.io/arch: amd64
+    role: cncinfra
+
+operator:
+  nodeSelector:
     role: cncinfra
 
 grafana:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: infra
 
 prometheus:
   nodeSelector:
-    kubernetes.io/arch: amd64
     role: infra
