@@ -28,16 +28,10 @@ kubectl create namespace compiler
 ```yaml
 clusterName: "example.org"
 ```
-7. Configure sizing and autoscaling of the CNC components according to the [sizing guide](https://docs.azul.com/cloud_native_compiler/Sizing-And-Scaling). By default autoscaling is on and the CNC service can scale up to 10 Compile Brokers.
-8. If needed, configure external access in your cluster. If your JVMs are running within the same cluster as CNC, you can ignore this step. Otherwise, it is necessary to configure an external load balancer in `values-override.yaml`:
-```yaml
-gateway:
-  service:
-    type: "LoadBalancer"
-    annotations:
-      service.beta.kubernetes.io/aws-load-balancer-internal: “true”
-      service.beta.kubernetes.io/aws-load-balancer-type: “nlb”
-```
+7. Configure sizing and autoscaling of the CNC components according to the [sizing guide](https://docs.azul.com/cloud_native_compiler/sizing-and-scaling). By default autoscaling is on and the CNC service can scale up to 10 Compile Brokers.
+8. If needed, configure external access in your cluster. If your JVMs are running within the same cluster as CNC, you can ignore this step. Otherwise, it is necessary to configure an external load balancer in `values-override.yaml`.  
+For clusters running on AWS an [example configuration file](https://github.com/AzulSystems/cnc-helm-charts/blob/master/values-awslb.yaml) is available in this GitHub project.
+
 9. Install using Helm, passing in the `values-override.yaml`:
 ```bash
 helm install compiler cnc-helm/prime-cnc -n compiler -f values-override.yaml
@@ -51,14 +45,13 @@ STATUS: deployed
 REVISION: 1
 TEST SUITE: None
 ```
+Advanced deployment without compilation feature.  
+If you want to deploy CNC without its compilation feature, add provided `values-disable-compiler.yaml` to your helm command:
+```bash
+helm install compiler cnc-helm/prime-cnc -n readynow-only -f values-override.yaml -f values-disable-compiler.yaml
+```
+
 10. Verify that all started pods are ready:
 ```bash
 kubectl get all -n compiler
-```
-
-Advanced deployment without compilation feature:
-
-Provide values-disable-compiler.yaml to deploy the CNC service without components responsible for compilation.
-```bash
-helm install compiler cnc-helm/prime-cnc -n readynow-only -f values-override.yaml -f values-disable-compiler.yaml
 ```
