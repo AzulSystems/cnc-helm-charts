@@ -115,7 +115,6 @@ spec:
         - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul?useBulkStmt=true&rewriteBatchedStatements=true&useCompression=true"
         - "-Dcompiler.parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-broker/etc-override/nc-config.yml"
-        - "-Dquarkus.flyway.migrate-at-start=false"
 {{- if .Values.codeCache }}
         - "-Dcodecache.enabled={{- .Values.codeCache.enabled }}"
 {{- end }}

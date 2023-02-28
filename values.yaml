@@ -1,5 +1,5 @@
 ---
-version: "1.6.0"
+version: "1.6.1"
 
 clusterName: "cluster.local"
 
@@ -109,6 +109,11 @@ gateway:
     kubernetes.io/arch: amd64
   service:
     type: "NodePort"
+    httpEndpoint:
+      enabled: false
+      port: 8080
+    grpc:
+      port: 50051
     # annotations: {}
 
 compileBroker:
@@ -140,10 +145,10 @@ cache:
     requests:
       # Do not use non-numerical values such as 200m, otherwise the templating logic will break.
       cpu: "7"
-      memory: "20Gi"
+      memory: "28Gi"
     limits:
       cpu: "7"
-      memory: "20Gi"
+      memory: "28Gi"
   nodeSelector:
     kubernetes.io/arch: amd64
 

@@ -117,7 +117,11 @@ spec:
 {{- if and .Values.autoscaler .Values.cache.autoscaler.enabled}}
 ---
 # Dependence on metric-server
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+apiVersion: autoscaling/v2
+{{- else }}
 apiVersion: autoscaling/v2beta2
+{{- end }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: cache

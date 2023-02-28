@@ -93,88 +93,6 @@ spec:
   selector:
     app: storage
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: initdb
-  namespace: {{ .Release.Namespace }}
-data:
-  create_compilation_index_table.sql: |
-      create table compilation_index (
-        event_id serial primary key,
-        compilation_id varchar(255) not null,
-        vm_id varchar(255),
-        event_type varchar(255) not null,
-        method_name text,
-        data mediumblob not null,
-        create_time timestamp not null default current_timestamp
-      );
-      create index compilation_index_compid_idx on compilation_index(compilation_id);
-      create index compilation_index_vmid_idx on compilation_index(vm_id);
-      create index compilation_index_create_time on compilation_index(create_time);
-  create_profile_info_table.sql: |
-      create table profile_info (
-        vm_id varchar(255) primary key,
-        namespace varchar(255) not null,
-        profile_input_id varchar(255),
-        current_size bigint not null,
-        current_size_stored_on_disk bigint not null,
-        chunk_count bigint not null,
-        start_epoch_millis bigint not null,
-        last_update_epoch_millis bigint not null,
-        last_download_epoch_millis bigint not null,
-        iteration bigint not null,
-        started_from_known_iter tinyint(1) not null,
-        was_truncated tinyint(1) not null,
-        was_completed tinyint(1) not null,
-        excluded tinyint(1) not null,
-        quality varchar(100) not null
-      );
-  create_promoted_profile_table.sql: |
-      create table promoted_profile (
-        namespace varchar(255) primary key,
-        vm_id varchar(255) not null
-      );
-  create_code_cache_tables.sql: |
-      create table code_store (
-        item_id varchar(225) primary key,
-        comp_hash bigint not null,
-        obj_file_size bigint not null default 0,
-        hash_priority integer not null default 0,
-        vm_id varchar(225) not null,
-        code_delivery mediumblob compressed not null,
-        options mediumblob not null,
-        cpu_time bigint not null default 0,
-        wall_time bigint not null default 0,
-        vm_state_count integer not null default 0,
-        create_time timestamp not null default current_timestamp
-      );
-      create index comp_hash_idx on code_store (comp_hash, hash_priority);
-      create index all_cache_item_idx on code_store (comp_hash, item_id, obj_file_size);
-      create table obj_file_store (
-        obj_id varchar(255) not null primary key,
-        obj_file mediumblob compressed not null
-      );
-      create table access_table (
-        item_id varchar(225) primary key,
-        access_time timestamp
-      );
-      create table dependency_store_packed (
-        item_id varchar(225) not null primary key,
-        vm_responses mediumblob compressed not null
-      );
-      create table merged_ids_by_primary (
-        item_id varchar(225) not null primary key,
-        merged_ids mediumtext not null
-      );
-      create table bucket_by_hash (
-        comp_hash bigint not null primary key,
-        items mediumtext not null,
-        access_time timestamp not null default current_timestamp    
-      );
-      create index bucket_access_time on bucket_by_hash (access_time);
-
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -229,27 +147,11 @@ spec:
         {{- if .Values.db.resources }}
         resources: {{- .Values.db.resources | toYaml | nindent 10 }}
         {{- end }}
-        volumeMounts:
-          - name: config
-            mountPath: "/docker-entrypoint-initdb.d/"
-            readOnly: true
 {{- if .Values.db.persistentDataVolume.enabled }}
+        volumeMounts:
           - name: data
             mountPath: "/var/lib/mysql"
 {{- end }}
-      volumes:
-        - name: config
-          configMap:
-            name: initdb
-            items:
-            - key: "create_compilation_index_table.sql"
-              path: "1_create_compilation_index_table.sql"
-            - key: "create_code_cache_tables.sql"
-              path: "2_create_code_cache_tables.sql"
-            - key: "create_profile_info_table.sql"
-              path: "3_create_profile_info_table.sql"
-            - key: "create_promoted_profile_table.sql"
-              path: "4_create_promoted_profile_table.sql"
 {{- if .Values.db.nodeSelector }}
       nodeSelector: {{- .Values.db.nodeSelector | toYaml | nindent 8 }}
 {{- end }}
@@ -404,7 +306,6 @@ spec:
         - "-Dpersistentprofile.cleaner.warning-size={{ include "_getProfilesWarningSizeInB" . }}"
   {{- if .Values.gateway.resources }}
         - "-Dquarkus.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
-        - "-Dinternal.grpc.server.instances={{ ceil .Values.gateway.resources.requests.cpu }}"
 {{- end}}
 {{- if .Values.ssl.enabled }}
         - "-Dquarkus.grpc.server.ssl.certificate=/opt/ssl/cert.pem"
@@ -428,8 +329,6 @@ spec:
           name: http-endpoint
         - containerPort: 50051
           name: grpc-external
-        - containerPort: 50052
-          name: grpc-internal
 {{- if .Values.gateway.resources }}
         resources: {{- .Values.gateway.resources | toYaml | nindent 10 }}
 {{- end }}
@@ -479,21 +378,26 @@ metadata:
 spec:
   type: {{ .Values.gateway.service.type }}
   ports:
-    - port: 8080
+{{- if .Values.gateway.service.httpEndpoint.enabled }}
+    - port: {{ .Values.gateway.service.httpEndpoint.port }}
       protocol: TCP
       name: http-server
-    - port: 50051
+      targetPort: 8080
+{{- end }}
+    - port: {{ .Values.gateway.service.grpc.port }}
       protocol: TCP
       name: grpc-server
-    - port: 50052
-      protocol: TCP
-      name: grpc-internal-server
+      targetPort: 50051
   selector:
     app: gateway
 {{- if and .Values.autoscaler .Values.gateway.autoscaler.enabled}}
 ---
 # Dependence on metric-server
+{{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
+apiVersion: autoscaling/v2
+{{- else }}
 apiVersion: autoscaling/v2beta2
+{{- end }}
 kind: HorizontalPodAutoscaler
 metadata:
   name: gateway
