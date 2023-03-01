@@ -392,6 +392,25 @@ spec:
     app: gateway
 {{- if and .Values.autoscaler .Values.gateway.autoscaler.enabled}}
 ---
+# used for uploading bundled engine over http
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-internal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: gateway
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 8080
+      protocol: TCP
+      name: http-server
+      targetPort: 8080
+  selector:
+    app: gateway
+---
 # Dependence on metric-server
 {{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
 apiVersion: autoscaling/v2
