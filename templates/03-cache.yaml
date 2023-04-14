@@ -41,6 +41,8 @@ spec:
         prometheus.io/path: "/q/metrics"
         prometheus.io/port: "8080"
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: cache
         image: {{ .Values.registry.cnc }}/cnc-hazelcast:{{ .Values.version }}{{ .Values.cache.versionSuffix }}

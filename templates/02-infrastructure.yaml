@@ -113,9 +113,14 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroupChangePolicy: OnRootMismatch
+        fsGroup: 999
       containers:
       - name: db
-        image: {{ .Values.registry.dockerhubMirror }}mariadb:{{ .Values.db.version }}
+        image: {{ .Values.registry.dockerhubMirror }}library/mariadb:{{ .Values.db.version }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
           - name: "MYSQL_DATABASE"
@@ -274,6 +279,8 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/q/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: gateway
         image: {{ .Values.registry.cnc }}/cnc-gateway:{{ .Values.version }}{{ .Values.gateway.versionSuffix }}

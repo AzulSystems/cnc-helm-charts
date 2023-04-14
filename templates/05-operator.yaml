@@ -65,6 +65,8 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: "/q/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: operator
           image: {{ .Values.registry.cnc }}/cnc-operator:{{ .Values.version }}{{ .Values.operator.versionSuffix }}
