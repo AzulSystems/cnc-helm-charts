@@ -8,7 +8,7 @@ simpleSizing:
 
 autoscaler: false
 
-storage:
+builtinStorage:
   resources:
     requests:
       cpu:

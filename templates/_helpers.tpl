@@ -5,9 +5,9 @@ so this is the static value that will always be the same,
 except when manually tuned.
 */}}
 {{- define "_sizing.nonScalingComponents.vCores" -}}
-{{- $storageCpu := .Values.storage.resources.limits.cpu -}}
+{{- $storageCpu := .Values.builtinStorage.resources.limits.cpu -}}
 {{- $dbCpu := .Values.db.resources.requests.cpu -}}
-{{- $storageReplicas := .Values.storage.replicas -}}
+{{- $storageReplicas := .Values.builtinStorage.replicas -}}
 {{- $dbReplicas := .Values.db.replicas -}}
 {{- add (mul $storageCpu $storageReplicas) (mul $dbCpu $dbReplicas) -}}
 {{- end -}}
@@ -165,10 +165,10 @@ type - one of "gateways", "caches" and "brokers" - indicates which replica amoun
 
 {{/* get appropriate volume size(persistent or ephemeral) and "reserve" 1G for system on shared ephemeral volume */}}
 {{- define "_getProfilesVolumeSpaceInB" -}}
-{{- if .Values.storage.persistentDataVolume.enabled -}}
-{{- include "_getBytesFromResourceString" .Values.storage.persistentDataVolume.size -}}
+{{- if .Values.builtinStorage.persistentDataVolume.enabled -}}
+{{- include "_getBytesFromResourceString" .Values.builtinStorage.persistentDataVolume.size -}}
 {{- else -}}
-{{- sub (include "_getBytesFromResourceString" (get .Values.storage.resources.limits "ephemeral-storage")) 1073741824 -}}
+{{- sub (include "_getBytesFromResourceString" (get .Values.builtinStorage.resources.limits "ephemeral-storage")) 1073741824 -}}
 {{- end -}}
 {{- end -}}
 
