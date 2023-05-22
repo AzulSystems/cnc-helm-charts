@@ -17,7 +17,6 @@ rules:
       - apps
     resources:
       - deployments
-      - statefulsets
     verbs:
       - get
       - patch
@@ -63,7 +62,7 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8060"
+        prometheus.io/port: "8080"
         prometheus.io/path: "/q/metrics"
     spec:
       securityContext:
@@ -73,26 +72,11 @@ spec:
           image: {{ .Values.registry.cnc }}/cnc-operator:{{ .Values.version }}{{ .Values.operator.versionSuffix }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           args:
-            - -Dbroker.compilation-parallelism={{ .Values.compilations.parallelism.lookupParallelism }}
+            - -Dbroker.compilation-parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}
             - -Dbroker.min-replicas={{ include "sizing.compileBroker.minReplicas" . }}
             - -Dbroker.max-replicas={{ include "sizing.compileBroker.maxReplicas" . }}
             - -Dbroker.scale-down.stabilization-window=60s
             - -Dtime-to-clear-backlog={{ .Values.operator.timeToClearOptimizationBacklog}}
-{{- if eq "operator" .Values.cache.autoscaler.mode}}
-            - -Dscaling.cache.enabled=true
-            - -Dscaling.cache.min-replicas={{ include "sizing.cache.minReplicas" . }}
-            - -Dscaling.cache.max-replicas={{ include "sizing.cache.maxReplicas" . }}
-            - -Dscaling.cache.broker-instances-for-one={{ .Values.simpleSizing.relationships.brokersPerCache }}
-{{- end }}
-{{- if eq "operator" .Values.gateway.autoscaler.mode}}
-            - -Dscaling.gateway.enabled=true
-            - -Dscaling.gateway.min-replicas={{ include "sizing.gateway.minReplicas" . }}
-            - -Dscaling.gateway.max-replicas={{ include "sizing.gateway.maxReplicas" . }}
-            - -Dscaling.gateway.broker-instances-for-one={{ .Values.simpleSizing.relationships.brokersPerGateway }}
-{{- end }}
-{{- if .Values.operator.extraArguments }}
-  {{- .Values.operator.extraArguments | toYaml | nindent 12 }}
-{{- end }}
           {{- if .Values.operator.resources }}
           resources: {{- .Values.operator.resources | toYaml | nindent 12 }}
           {{- end }}

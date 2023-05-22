@@ -15,7 +15,7 @@ gateway:
   nodeSelector:
     role: cncinfra
 
-builtinStorage:
+storage:
   nodeSelector:
     role: cncinfra
 

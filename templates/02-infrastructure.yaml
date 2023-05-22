@@ -6,8 +6,96 @@ metadata:
   namespace: {{ .Release.Namespace }}
 type: Opaque
 data:
+  minio-accesskey: {{ .Values.secrets.storage.accesskey | b64enc }}
+  minio-secretkey: {{ .Values.secrets.storage.secretkey | b64enc }}
   mariadb-password: {{ .Values.secrets.db.password | b64enc }}
   mariadb-username: {{ .Values.secrets.db.username | b64enc }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: storage
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: storage
+  selector:
+    matchLabels:
+      app: storage
+  replicas: {{ .Values.storage.replicas }}
+  template:
+    metadata:
+      labels:
+        app: storage
+      annotations:
+        "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        fsGroup: 101
+      containers:
+        - name: storage
+          image: {{ .Values.registry.cnc }}/cnc-storage:{{ .Values.version }}{{ .Values.storage.versionSuffix }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: infrastructure-credentials
+                  key: minio-accesskey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: infrastructure-credentials
+                  key: minio-secretkey
+            - name: MINIO_CACHE_EXCLUDE
+              value: "/data/compiler-artifacts/*,compiler-artifacts/*"
+            - name: GOGC
+              value: "10"
+          ports:
+            - containerPort: 9000
+              hostPort: 9000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- if .Values.storage.resources }}
+          resources: {{- .Values.storage.resources | toYaml | nindent 12 }}
+          {{- end }}
+{{- if not .Values.storage.persistentDataVolume.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+{{- end }}
+{{- if .Values.storage.nodeSelector }}
+      nodeSelector: {{- .Values.storage.nodeSelector | toYaml | nindent 8 }}
+{{- end }}
+{{- if .Values.storage.persistentDataVolume.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.storage.persistentDataVolume.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.storage.persistentDataVolume.size }}
+{{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: storage
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 9000
+  selector:
+    app: storage
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -202,57 +290,16 @@ spec:
         image: {{ .Values.registry.cnc }}/cnc-gateway:{{ .Values.version }}{{ .Values.gateway.versionSuffix }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
-{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
-          - name: blob-storage.storage-service
-            value: s3
           - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
-                name: infrastructure-storage-credentials
+                name: infrastructure-credentials
                 key: minio-accesskey
           - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
             valueFrom:
               secretKeyRef:
-                name: infrastructure-storage-credentials
+                name: infrastructure-credentials
                 key: minio-secretkey
-{{- else if eq "s3" .Values.storage.blobStorageService }}
-          - name: blob-storage.storage-service
-            value: s3
-          - name: engine.storage-location.bucket
-            value: {{ .Values.storage.s3.commonBucket }}
-          - name: engine.storage-location.path-prefix
-            value: {{ .Release.Namespace }}/compiler-engines/
-          - name: persistentprofile.storage-location.bucket
-            value: {{ .Values.storage.s3.commonBucket }}
-          - name: persistentprofile.storage-location.path-prefix
-            value: {{ .Release.Namespace }}/persistent-profile/
-
-{{- else if eq "azure-blob" .Values.storage.blobStorageService }}
-          - name: blob-storage.storage-service
-            value: azure-blob
-          - name: blob-storage.azure-blob.endpoint
-            value: {{ .Values.storage.azureBlob.endpoint }}
-          - name: blob-storage.azure-blob.authMethod
-            value: {{ .Values.storage.azureBlob.authMethod }}
-          - name: blob-storage.azure-blob.sasToken
-            valueFrom:
-              secretKeyRef:
-                name: azure-storage-credentials
-                key: azure-storage-sas-token
-          - name: blob-storage.azure-blob.connectionString
-            valueFrom:
-              secretKeyRef:
-                name: azure-storage-credentials
-                key: azure-storage-connection-string
-          - name: engine.storage-location.bucket
-            value: {{ .Values.storage.azureBlob.container }}
-          - name: engine.storage-location.path-prefix
-            value: {{ .Release.Namespace }}/compiler-engines/
-          - name: persistentprofile.storage-location.bucket
-            value: {{ .Values.storage.azureBlob.container }}
-          - name: persistentprofile.storage-location.path-prefix
-            value: {{ .Release.Namespace }}/persistent-profile/
-{{- end  }}
           - name: SERVER_ADDRESS
             valueFrom:
               fieldRef:
@@ -260,13 +307,9 @@ spec:
         args:
         - "-XX:+ExitOnOutOfMemoryError"
         - "-XX:MaxRAMPercentage=80"
-        - "-XX:-OmitStackTraceInFastThrow"
-        - "-Dvm.session-statistics.log.blocked-time-threshold={{ .Values.operator.timeToClearOptimizationBacklog}}"
-{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
         - "-Dquarkus.s3.endpoint-override=http://storage:9000"
-        - "-Dquarkus.s3.aws.credentials.type=static"
-{{- end  }}
         - "-Dquarkus.s3.aws.region=us-west-2"
+        - "-Dquarkus.s3.aws.credentials.type=static"
         - "-Dcompilation.limit.per.vm={{ .Values.compilations.parallelism.limitPerVm }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-gateway/etc-override/hazelcast-config.yml"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
@@ -358,6 +401,7 @@ spec:
       targetPort: 50051
   selector:
     app: gateway
+{{- if and .Values.autoscaler .Values.gateway.autoscaler.enabled}}
 ---
 # used for uploading bundled engine over http
 apiVersion: v1
@@ -377,8 +421,6 @@ spec:
       targetPort: 8080
   selector:
     app: gateway
-{{- if and .Values.autoscaler .Values.gateway.autoscaler.enabled}}
-{{- if eq "hpa" .Values.gateway.autoscaler.mode}}
 ---
 # Dependence on metric-server
 {{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
@@ -407,5 +449,4 @@ spec:
         target:
           type: Utilization
           averageUtilization: 70
-{{- end }}
 {{- end }}

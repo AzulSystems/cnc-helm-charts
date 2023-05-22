@@ -1,5 +1,5 @@
 ---
-version: "1.7"
+version: "1.6.3"
 
 clusterName: "cluster.local"
 
@@ -29,19 +29,15 @@ simpleSizing:
   # Do not change these values unless you change the required CNC pod sizing.
   relationships:
     brokersPerGateway: 30
-    brokersPerCache: 10
+    brokersPerCache: 20
 
 secrets:
   db:
     username: "username"
     password: "password"
-  builtinStorage:
+  storage:
     accesskey: "minio"
     secretkey: "minio123"
-  azure:
-    blobStorage:
-      sasToken: "<your-token>"
-      connectionString: "<your-connection-string>"
 
 ssl:
   enabled: false
@@ -68,22 +64,12 @@ compilations:
     limitPerVm: 500
     # Maximum amount of parallel compiler engine processes running at the same time per compile broker.
     limitPerCompileBroker: 30
-    lookupParallelism: 120 # calculated as limitPerCompileBroker * 4
-
-storage:
-  blobStorageService: builtin-storage # available options: builtin-storage, azure-blob, s3
-  azureBlob:
-    endpoint: https://<yourendpoint>.blob.core.windows.net
-    container: <your-container>
-    authMethod: <method> # currently sas-token, connection-string, default-credentials
-  s3:
-    commonBucket: <your-bucket>
 
 #################################################################################
 # The rest of the settings are only to show you the values used internally.     #
 # Changing the values below will not have any affect on your CNC cluster.       #
 #################################################################################
-builtinStorage:
+storage:
   replicas: 1
   resources:
     requests:
@@ -107,7 +93,6 @@ gateway:
   replicas: 1
   autoscaler:
     enabled: true
-    mode: hpa
     min: 1
     max: 10
   resources:
@@ -154,7 +139,6 @@ cache:
   replicas: 1
   autoscaler:
     enabled: true
-    mode: hpa
     min: 1
     max: 3
   resources:
