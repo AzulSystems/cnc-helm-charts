@@ -1,4 +1,5 @@
 compileBroker:
+  enabled : false
   replicas: 0
   autoscaler:
     enabled: false
@@ -10,3 +11,6 @@ compilations:
   parallelism:
     limitPerVm: 0
     limitPerCompileBroker: 0
+
+db:
+  enabled: false

@@ -1,4 +1,5 @@
 ---
+{{- if and .Values.compileBroker .Values.compileBroker.enabled}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -73,7 +74,7 @@ spec:
       annotations:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "8100"
         prometheus.io/path: "/q/metrics"
     spec:
       securityContext:
@@ -93,29 +94,79 @@ spec:
               secretKeyRef:
                 name: infrastructure-credentials
                 key: mariadb-password
-          - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
+{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: s3
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
-                name: infrastructure-credentials
+                name: infrastructure-storage-credentials
                 key: minio-accesskey
-          - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
             valueFrom:
               secretKeyRef:
-                name: infrastructure-credentials
+                name: infrastructure-storage-credentials
                 key: minio-secretkey
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_TYPE
+            value: static
+{{- else if eq "s3" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: s3
+          - name: compiler.compile-engine-storage-location.bucket
+            value: {{ .Values.storage.s3.commonBucket }}
+          - name: compiler.compile-engine-storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-engines/
+          - name: compiler.compiler-artifact-storage-location.bucket
+            value: {{ .Values.storage.s3.commonBucket }}
+          - name: compiler.compiler-artifact-storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-artifacts/
+{{- else if eq "azure-blob" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: azure-blob
+          - name: blob-storage.azure-blob.endpoint
+            value: {{ .Values.storage.azureBlob.endpoint }}
+          - name: blob-storage.azure-blob.authMethod
+            value: {{ .Values.storage.azureBlob.authMethod }}
+  {{- if and (eq "sas-token" .Values.storage.azureBlob.authMethod) .Values.secrets.azure.blobStorage.sasToken }}
+          - name: blob-storage.azure-blob.sasToken
+            valueFrom:
+              secretKeyRef:
+                name: azure-storage-credentials
+                key: azure-storage-sas-token
+  {{- end }}
+  {{- if and (eq "connection-string" .Values.storage.azureBlob.authMethod) .Values.secrets.azure.blobStorage.connectionString }}
+          - name: blob-storage.azure-blob.connectionString
+            valueFrom:
+              secretKeyRef:
+                name: azure-storage-credentials
+                key: azure-storage-connection-string
+  {{- end }}
+          - name: compiler.compile-engine-storage-location.bucket
+            value: {{ .Values.storage.azureBlob.container }}
+          - name: compiler.compile-engine-storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-engines/
+          - name: compiler.compiler-artifact-storage-location.bucket
+            value: {{ .Values.storage.azureBlob.container }}
+          - name: compiler.compiler-artifact-storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-artifacts/
+{{- end }}
           - name: SERVER_ADDRESS
             valueFrom:
               fieldRef:
                 fieldPath: status.podIP
+          - name: QUARKUS_S3_CLOUD_REGION
+            value: us-west-2
         args:
         - "-XX:+ExitOnOutOfMemoryError"
         - "-XX:MaxRAMPercentage=80"
+        - "-XX:-OmitStackTraceInFastThrow"
         - "-Dquarkus.hazelcast-client.cluster-members=cache:5701"
+{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
         - "-Dquarkus.s3.endpoint-override=http://storage:9000"
-        - "-Dquarkus.s3.aws.region=us-west-2"
-        - "-Dquarkus.s3.aws.credentials.type=static"
+{{- end }}
         - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul?useBulkStmt=true&rewriteBatchedStatements=true&useCompression=true"
         - "-Dcompiler.parallelism={{ .Values.compilations.parallelism.limitPerCompileBroker }}"
+        - "-Dcompiler.lookup-parallelism={{ .Values.compilations.parallelism.lookupParallelism }}"
         - "-Dhazelcast.client.config=/var/lib/cnc-broker/etc-override/nc-config.yml"
 {{- if .Values.codeCache }}
         - "-Dcodecache.enabled={{- .Values.codeCache.enabled }}"
@@ -129,7 +180,7 @@ spec:
     {{- end }}
 {{- end }}
         ports:
-        - containerPort: 8080
+        - containerPort: 8100
           name: http-endpoint
         {{- if .Values.compileBroker.resources }}
         resources: {{- .Values.compileBroker.resources | toYaml | nindent 10 }}
@@ -173,3 +224,4 @@ spec:
       name: grpc-server
   selector:
     app: compile-broker
+{{- end }}

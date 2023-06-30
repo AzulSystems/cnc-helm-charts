@@ -39,7 +39,7 @@ spec:
         "cluster-autoscaler.kubernetes.io/safe-to-evict": "false"
         prometheus.io/scrape: "true"
         prometheus.io/path: "/q/metrics"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "8070"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -50,25 +50,94 @@ spec:
         ports:
         - containerPort: 5701
           name: ch-server
-        - containerPort: 8080
+        - containerPort: 8070
           name: metrics
         env:
-        - name: QUARKUS_DATASOURCE_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: infrastructure-credentials
-              key: mariadb-username
-        - name: QUARKUS_DATASOURCE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: infrastructure-credentials
-              key: mariadb-password
+{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: s3
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-storage-credentials
+                key: minio-accesskey
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-storage-credentials
+                key: minio-secretkey
+          - name: QUARKUS_S3_CLOUD_CREDENTIALS_TYPE
+            value: static
+
+{{- else if eq "s3" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: s3
+          - name: engine.storage-location.bucket
+            value: {{ .Values.storage.s3.commonBucket }}
+          - name: engine.storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-engines/
+          - name: persistentprofile.storage-location.bucket
+            value: {{ .Values.storage.s3.commonBucket }}
+          - name: persistentprofile.storage-location.path-prefix
+            value: {{ .Release.Namespace }}/persistent-profile/
+
+{{- else if eq "azure-blob" .Values.storage.blobStorageService }}
+          - name: blob-storage.storage-service
+            value: azure-blob
+          - name: blob-storage.azure-blob.endpoint
+            value: {{ .Values.storage.azureBlob.endpoint }}
+          - name: blob-storage.azure-blob.authMethod
+            value: {{ .Values.storage.azureBlob.authMethod }}
+  {{- if and (eq "sas-token" .Values.storage.azureBlob.authMethod) .Values.secrets.azure.blobStorage.sasToken }}
+          - name: blob-storage.azure-blob.sasToken
+            valueFrom:
+              secretKeyRef:
+                name: azure-storage-credentials
+                key: azure-storage-sas-token
+  {{- end }}
+  {{- if and (eq "connection-string" .Values.storage.azureBlob.authMethod) .Values.secrets.azure.blobStorage.connectionString }}
+          - name: blob-storage.azure-blob.connectionString
+            valueFrom:
+              secretKeyRef:
+                name: azure-storage-credentials
+                key: azure-storage-connection-string
+  {{- end  }}
+          - name: engine.storage-location.bucket
+            value: {{ .Values.storage.azureBlob.container }}
+          - name: engine.storage-location.path-prefix
+            value: {{ .Release.Namespace }}/compiler-engines/
+          - name: persistentprofile.storage-location.bucket
+            value: {{ .Values.storage.azureBlob.container }}
+          - name: persistentprofile.storage-location.path-prefix
+            value: {{ .Release.Namespace }}/persistent-profile/
+{{- end  }}
+{{- if eq true .Values.db.enabled }}
+          - name: QUARKUS_DATASOURCE_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: mariadb-username
+          - name: QUARKUS_DATASOURCE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: infrastructure-credentials
+                key: mariadb-password
+{{- end }}
         args:
           - "-XX:MaxRAMPercentage=80"
           - "-XX:+ExitOnOutOfMemoryError"
+          - "-XX:-OmitStackTraceInFastThrow"
           - "-Dhazelcast.config=/data/cache/cluster-config.yaml"
           - "-Dhz.jet.enabled=true"
+{{- if eq "builtin-storage" .Values.storage.blobStorageService }}
+          - "-Dquarkus.s3.endpoint-override=http://storage:9000"
+{{- end  }}
+{{- if eq true .Values.db.enabled }}
           - "-Dquarkus.datasource.jdbc.url=jdbc:mariadb://db:3306/azul?useBulkStmt=true&rewriteBatchedStatements=true"
+{{- else }}
+          - "-Dquarkus.datasource.jdbc.url=dummy-value"
+          - "-Dquarkus.flyway.migrate-at-start=false"
+{{- end }}
           - "-Dquarkus.datasource.jdbc.max-size=100"
           - "-Dhazelcast.shutdownhook.policy=GRACEFUL"
           - "-Dhazelcast.shutdownhook.enabled=true"
@@ -117,6 +186,7 @@ spec:
     app: cache
 
 {{- if and .Values.autoscaler .Values.cache.autoscaler.enabled}}
+{{- if eq "hpa" .Values.cache.autoscaler.mode}}
 ---
 # Dependence on metric-server
 {{- if .Capabilities.APIVersions.Has "autoscaling/v2" }}
@@ -149,6 +219,7 @@ spec:
           value: 10
           periodSeconds: 120
 
+{{- end }}
 {{- end }}
 ---
 apiVersion: v1

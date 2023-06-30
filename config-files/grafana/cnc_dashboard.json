@@ -26,7 +26,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 35,
-  "iteration": 1667287086874,
+  "iteration": 1682930239989,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -84,7 +84,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.13",
+      "pluginVersion": "8.5.14",
       "targets": [
         {
           "exemplar": true,
@@ -156,7 +156,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.13",
+      "pluginVersion": "8.5.14",
       "targets": [
         {
           "exemplar": true,
@@ -172,6 +172,7 @@
     },
     {
       "datasource": {
+        "type": "prometheus",
         "uid": "$DataSource"
       },
       "description": "",
@@ -233,7 +234,7 @@
         "x": 6,
         "y": 1
       },
-      "id": 46,
+      "id": 180,
       "options": {
         "legend": {
           "calcs": [],
@@ -248,19 +249,51 @@
       "pluginVersion": "8.2.6",
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DataSource"
+          },
           "exemplar": true,
-          "expr": "sum(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=\"\"}[$__rate_interval]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=\"\",pod=~\"(compile-broker|gateway|cache|db|storage|operator)-.*\"}[$__rate_interval]))",
           "interval": "",
           "legendFormat": "VCores used total",
           "queryType": "randomWalk",
           "refId": "A"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DataSource"
+          },
           "exemplar": true,
-          "expr": "sum(rate(compiler_process_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+          "expr": "sum(rate(compiler_process_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",kubernetes_pod_name=~\"(compile-broker|gateway|cache|db|storage|operator)-.*\"}[$__rate_interval]))",
           "interval": "",
           "legendFormat": "VCores used by compiler engine",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DataSource"
+          },
+          "editorMode": "code",
+          "expr": "sum(kube_pod_container_resource_requests{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",resource=\"cpu\",pod=~\"(compile-broker|gateway|cache|db|storage|operator)-.*\"})",
+          "hide": false,
+          "legendFormat": "VCores requested",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DataSource"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_container_resource_requests{cluster=\"$cluster\",namespace=\"$ns\",resource=\"cpu\",pod=~\"compile-broker-.*\"})\n*sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\",phase=\"Running\"})\n+\nmax(kube_pod_container_resource_requests{cluster=\"$cluster\",namespace=\"$ns\",resource=\"cpu\",pod=~\"cache-.*\"})\n*sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"cache-.*\",phase=\"Running\"})\n+\nmax(kube_pod_container_resource_requests{cluster=\"$cluster\",namespace=\"$ns\",resource=\"cpu\",pod=~\"gateway-.*\"})\n*sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"gateway-.*\",phase=\"Running\"})\n+\nmax(kube_pod_container_resource_requests{cluster=\"$cluster\",namespace=\"$ns\",resource=\"cpu\",pod=~\"storage-.*\"})\n*sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"storage-.*\",phase=\"Running\"})\n+\nmax(kube_pod_container_resource_requests{cluster=\"$cluster\",namespace=\"$ns\",resource=\"cpu\",pod=~\"db-.*\"})\n*sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"db-.*\",phase=\"Running\"})\n",
+          "hide": false,
+          "legendFormat": "VCores provided",
+          "range": true,
+          "refId": "D"
         }
       ],
       "title": "Server CPU utilization",
@@ -300,18 +333,18 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(increase(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container_name=~\"[a-z].*\"}[$__range])) by (container_name)",
+          "expr": "sum(increase(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"[a-z].*\"}[$__range])) by (container)",
           "interval": "",
-          "legendFormat": "{{container_name}}",
+          "legendFormat": "{{container}}",
           "queryType": "randomWalk",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "sum(increase(container_cpu_cfs_throttled_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container_name=~\"[a-z].*\"}[$__range])) by (container_name)",
+          "expr": "sum(increase(container_cpu_cfs_throttled_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"[a-z].*\"}[$__range])) by (container)",
           "hide": false,
           "interval": "",
-          "legendFormat": "{{container_name}} [throttling]",
+          "legendFormat": "{{container}} [throttling]",
           "refId": "B"
         }
       ],
@@ -365,11 +398,11 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.5.13",
+      "pluginVersion": "8.5.14",
       "targets": [
         {
           "exemplar": true,
-          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\",phase=\"Running\"})",
+          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\",phase=\"Running\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "compile-broker",
@@ -377,7 +410,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"gateway-.*\",phase=\"Running\"})",
+          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"gateway-.*\",phase=\"Running\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "gateway",
@@ -385,7 +418,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"cache-.*\",phase=\"Running\"})",
+          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"cache-.*\",phase=\"Running\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "cache",
@@ -400,11 +433,39 @@
         "type": "prometheus",
         "uid": "${DataSource}"
       },
-      "description": "the number of all VMs which are blocked",
+      "description": "The number of client VMs connected and their status",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -413,10 +474,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
@@ -429,34 +486,58 @@
         "x": 0,
         "y": 10
       },
-      "id": 143,
+      "id": 178,
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
         },
-        "textMode": "auto"
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "8.5.13",
+      "pluginVersion": "8.5.14",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DataSource}"
           },
+          "editorMode": "code",
+          "expr": "sum(clients_connected{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "hide": false,
+          "legendFormat": "Total connected",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
           "expr": "sum(vms_blocked_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "legendFormat": "Backlogged",
+          "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(vms_local_fallback_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "hide": false,
+          "legendFormat": "Local fallback",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Number of  Backlogged VMs",
-      "type": "stat"
+      "title": "Client JVMs",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -740,7 +821,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "lU0wH9jnz"
+            "uid": "$DataSource"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -754,10 +835,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "lU0wH9jnz"
+            "uid": "$DataSource"
           },
           "exemplar": true,
-          "expr": "sum(compiler_process_limit{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "expr": "sum(compilation_queue_capacity{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
           "interval": "",
           "legendFormat": "Capacity",
           "refId": "B"
@@ -863,9 +944,9 @@
     },
     {
       "datasource": {
-        "uid": "$DataSource"
+        "type": "prometheus",
+        "uid": "${DataSource}"
       },
-      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -875,8 +956,8 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -889,39 +970,74 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
             }
           },
           "mappings": [],
-          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "Queue capacity"
+              "options": "VM - waiting"
             },
             "properties": [
               {
-                "id": "custom.fillOpacity",
-                "value": 0
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sum(gateway_requestQueue{cluster=\"perf-west2\",kubernetes_namespace=\"msedlak-qa\"}) + sum(compilation_queue_size{cluster=\"perf-west2\",kubernetes_namespace=\"msedlak-qa\"})"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CNC"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
               }
             ]
           }
@@ -933,7 +1049,7 @@
         "x": 15,
         "y": 18
       },
-      "id": 52,
+      "id": 168,
       "options": {
         "legend": {
           "calcs": [],
@@ -945,34 +1061,39 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "8.2.6",
       "targets": [
         {
-          "exemplar": true,
-          "expr": "sum(compilation_queue_size{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Pending compilations",
-          "queryType": "randomWalk",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(vms_local_compilations_waiting_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "legendFormat": "VM - waiting",
+          "range": true,
           "refId": "A"
         },
         {
-          "exemplar": true,
-          "expr": "sum(compilation_queue_capacity{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(gateway_requestQueue{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}) + sum(compilation_queue_size{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
           "hide": false,
-          "interval": "",
-          "legendFormat": "Queue capacity",
+          "legendFormat": "CNC",
+          "range": true,
           "refId": "B"
         }
       ],
-      "title": "Compilation queue",
+      "title": "Compilation Queues VMs / CNC",
       "type": "timeseries"
     },
     {
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
@@ -984,9 +1105,9 @@
       "panels": [
         {
           "datasource": {
-            "uid": "$DataSource"
+            "type": "prometheus",
+            "uid": "${DataSource}"
           },
-          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1044,7 +1165,7 @@
             "x": 0,
             "y": 29
           },
-          "id": 77,
+          "id": 62,
           "options": {
             "legend": {
               "calcs": [],
@@ -1052,36 +1173,47 @@
               "placement": "bottom"
             },
             "tooltip": {
-              "mode": "single",
+              "mode": "multi",
               "sort": "none"
             }
           },
           "pluginVersion": "8.2.6",
           "targets": [
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
               "exemplar": true,
-              "expr": "sum(rate(grpc_call_seconds_sum{cluster=\"$cluster\",method=\"azul.remotecompiler.vmstate.VmStateProvider/Get\",app=\"compile-broker\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(rate(compiler_process_startup_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
-              "legendFormat": "compile-broker->gateway (measured on compile-broker)",
-              "queryType": "randomWalk",
-              "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "sum(rate(grpc_server_call_seconds_sum{cluster=\"$cluster\",method=\"azul.remotecompiler.vmstate.VmStateProvider/Get\",app=\"gateway\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
-              "interval": "",
-              "legendFormat": "compile-broker->gateway (measured on gateway)",
+              "legendFormat": "RCD startup",
               "refId": "B"
             },
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
               "exemplar": true,
-              "expr": "sum(rate(gateway_queries_seconds_sum{cluster=\"$cluster\",app=\"gateway\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(rate(compiler_driver_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
-              "legendFormat": "gateway->VM (measured on gateway)",
-              "refId": "C"
+              "legendFormat": "Compile wall time reported by RCD",
+              "refId": "D"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "exemplar": true,
+              "expr": "sum(rate(compiler_driver_query_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))-\nsum(rate(compiler_driver_query_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "VM state queries reported by RCD",
+              "refId": "E"
             }
           ],
-          "title": "VM state requests, total time",
+          "title": "Compilation wall time contribution",
           "type": "timeseries"
         },
         {
@@ -1180,8 +1312,9 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DataSource}"
+            "uid": "$DataSource"
           },
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1239,7 +1372,7 @@
             "x": 0,
             "y": 37
           },
-          "id": 62,
+          "id": 77,
           "options": {
             "legend": {
               "calcs": [],
@@ -1247,7 +1380,7 @@
               "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "none"
             }
           },
@@ -1256,50 +1389,51 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DataSource}"
+                "uid": "$DataSource"
               },
               "exemplar": true,
-              "expr": "sum(rate(compiler_process_startup_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(rate(vmstate_query_gw_seconds_sum{cluster=\"$cluster\",app=\"compile-broker\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
-              "legendFormat": "RCD startup",
+              "legendFormat": "compile-broker->gateway (measured on compile-broker)",
+              "queryType": "randomWalk",
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "exemplar": true,
+              "expr": "sum(rate(vmstate_query_handler_seconds_sum{cluster=\"$cluster\",app=\"gateway\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "compile-broker->gateway (measured on gateway)",
               "refId": "B"
             },
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DataSource}"
+                "uid": "$DataSource"
               },
               "exemplar": true,
-              "expr": "sum(rate(compiler_driver_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(rate(gateway_queries_seconds_sum{cluster=\"$cluster\",app=\"gateway\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
-              "legendFormat": "Compile wall time reported by RCD",
-              "refId": "D"
+              "legendFormat": "gateway->VM (measured on gateway)",
+              "refId": "C"
             },
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "exemplar": true,
-              "expr": "sum(rate(compiler_driver_query_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))-\nsum(rate(compiler_driver_query_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
-              "interval": "",
-              "legendFormat": "VM state queries reported by RCD",
-              "refId": "E"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
+                "uid": "$DataSource"
               },
               "editorMode": "code",
               "expr": "sum(rate(compiler_vmstate_query_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "hide": false,
-              "legendFormat": "VM state queries reported by compile-broker",
+              "legendFormat": "RCD->compile-broker (measured on broker)",
               "range": true,
-              "refId": "C"
+              "refId": "D"
             }
           ],
-          "title": "Compilation wall time contribution",
+          "title": "VM state requests, total time",
           "type": "timeseries"
         },
         {
@@ -1384,7 +1518,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "histogram_quantile($quantile, sum by (le) (increase(grpc_call_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",app=\"compile-broker\",method=\"azul.remotecompiler.vmstate.VmStateProvider/Get\"}[$__rate_interval])))",
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_query_gw_seconds_bucket{cluster=\"$cluster\",app=\"compile-broker\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
               "hide": false,
               "interval": "",
               "legendFormat": "compile-broker->gateway (measured on compile-broker), Q$quantile",
@@ -1397,7 +1531,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "histogram_quantile($quantile, sum by (le) (increase(grpc_server_call_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",app=\"gateway\",method=\"azul.remotecompiler.vmstate.VmStateProvider/Get\"}[$__rate_interval])))",
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_query_handler_seconds_bucket{cluster=\"$cluster\",app=\"gateway\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
               "interval": "",
               "legendFormat": "compile-broker->gateway (measured on gateway), Q$quantile",
               "refId": "B"
@@ -1412,6 +1546,18 @@
               "interval": "",
               "legendFormat": "gateway->VM (measured on gateway), Q$quantile",
               "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(compiler_vmstate_query_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "legendFormat": "RCD->compile-broker (measured on compile-broker) Q$quantile",
+              "range": true,
+              "refId": "D"
             }
           ],
           "title": "VM state requests, latency histogram",
@@ -1419,6 +1565,7 @@
         },
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "$DataSource"
           },
           "fieldConfig": {
@@ -1493,6 +1640,10 @@
           "pluginVersion": "8.2.6",
           "targets": [
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
               "expr": "sum(rate(vmstate_cache_get_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
               "legendFormat": "Total Get Time",
@@ -1500,10 +1651,40 @@
               "refId": "A"
             },
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
               "expr": "sum(rate(vmstate_cache_put_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
               "legendFormat": "Total Put Time",
               "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_cleanup_unknown_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Total Cleanup Unknown Time",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_invalidate_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Total Invalidate Time",
+              "range": true,
+              "refId": "D"
             }
           ],
           "title": "VM State Cache operations",
@@ -1588,7 +1769,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "lU0wH9jnz"
+                "uid": "$DataSource"
               },
               "exemplar": true,
               "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_cache_get_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
@@ -1600,13 +1781,41 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "lU0wH9jnz"
+                "uid": "$DataSource"
               },
               "exemplar": true,
               "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_cache_put_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
               "interval": "",
               "legendFormat": "Put Q$quantile",
               "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_cache_invalidate_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Invalidate Q$quantile",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(vmstate_cache_cleanup_unknown_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Cleanup Unknown Q$quantile",
+              "range": true,
+              "refId": "D"
             }
           ],
           "title": "VM State Cache latency histogram",
@@ -1614,6 +1823,239 @@
         },
         {
           "datasource": {
+            "type": "prometheus",
+            "uid": "$DataSource"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 53
+          },
+          "id": 181,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_get_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "Get",
+              "queryType": "randomWalk",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(hz_stats_nc_hits_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",map=\"vmstatecache\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Get - Near-Cache Hit",
+              "queryType": "randomWalk",
+              "range": true,
+              "refId": "E"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_put_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "Put",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_cleanup_unknown_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Cleanup Unknown",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(vmstate_cache_invalidate_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Invalidate",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "VM State Cache operation rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "uid": "$DataSource"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 53
+          },
+          "id": 127,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "(sum(rate(compiler_driver_query_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))-sum(rate(compiler_driver_query_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))/\nsum(rate(compiler_driver_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "Wait time ratio",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Compiler wait time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
             "uid": "$DataSource"
           },
           "fieldConfig": {
@@ -1671,7 +2113,7 @@
             "h": 9,
             "w": 6,
             "x": 0,
-            "y": 53
+            "y": 61
           },
           "id": 48,
           "options": {
@@ -1688,6 +2130,10 @@
           "pluginVersion": "8.2.6",
           "targets": [
             {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
               "exemplar": true,
               "expr": "sum(rate(compilations_finished_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])) by (result)",
               "interval": "",
@@ -1758,7 +2204,7 @@
             "h": 9,
             "w": 6,
             "x": 6,
-            "y": 53
+            "y": 61
           },
           "id": 50,
           "options": {
@@ -1777,7 +2223,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "lU0wH9jnz"
+                "uid": "$DataSource"
               },
               "exemplar": true,
               "expr": "histogram_quantile($quantile, sum by (le) (increase(compilations_finished_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
@@ -1792,6 +2238,235 @@
         },
         {
           "datasource": {
+            "uid": "${DataSource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Match"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "semi-dark-green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Mismatch"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "light-orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 61
+          },
+          "id": 103,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "exemplar": true,
+              "expr": "sum(rate(codecache_lookup_matcher_failure_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "Mismatch",
+              "refId": "A"
+            },
+            {
+              "exemplar": true,
+              "expr": "sum(rate(codecache_lookup_matcher_success_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Match",
+              "refId": "B"
+            }
+          ],
+          "title": "CodeCache Lookup Matcher",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 6,
+            "x": 0,
+            "y": 70
+          },
+          "id": 169,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(codecache_lookup_walltime_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Lookup Q$quantile",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(codecache_put_walltime_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Put Q$quantile",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "CodeCache Latency histogram",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
             "uid": "$DataSource"
           },
           "fieldConfig": {
@@ -1841,17 +2516,118 @@
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "s"
             },
             "overrides": []
           },
           "gridPos": {
             "h": 9,
+            "w": 6,
+            "x": 6,
+            "y": 70
+          },
+          "id": 170,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(compiler_process_walltime_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "interval": "",
+              "legendFormat": "Q$quantile",
+              "queryType": "randomWalk",
+              "refId": "A"
+            }
+          ],
+          "title": "Compiler engine histogram",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "uid": "$DataSource"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Queue capacity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 9,
             "w": 12,
             "x": 12,
-            "y": 53
+            "y": 70
           },
-          "id": 127,
+          "id": 52,
           "options": {
             "legend": {
               "calcs": [],
@@ -1867,14 +2643,23 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "(sum(rate(compiler_driver_query_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))-sum(rate(compiler_driver_query_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))/\nsum(rate(compiler_driver_walltime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(compilation_queue_size{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+              "hide": false,
               "interval": "",
-              "legendFormat": "Wait time ratio",
+              "legendFormat": "Pending compilations",
               "queryType": "randomWalk",
               "refId": "A"
+            },
+            {
+              "exemplar": true,
+              "expr": "sum(compilation_queue_capacity{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"})",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Queue capacity",
+              "refId": "B"
             }
           ],
-          "title": "Compiler wait time",
+          "title": "Compilation queue",
           "type": "timeseries"
         },
         {
@@ -1937,7 +2722,7 @@
             "h": 9,
             "w": 12,
             "x": 0,
-            "y": 62
+            "y": 79
           },
           "id": 139,
           "options": {
@@ -1982,6 +2767,7 @@
         },
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "${DataSource}"
           },
           "fieldConfig": {
@@ -2037,9 +2823,9 @@
             "h": 9,
             "w": 12,
             "x": 12,
-            "y": 62
+            "y": 79
           },
-          "id": 103,
+          "id": 185,
           "options": {
             "legend": {
               "calcs": [],
@@ -2047,28 +2833,24 @@
               "placement": "bottom"
             },
             "tooltip": {
-              "mode": "multi",
+              "mode": "single",
               "sort": "none"
             }
           },
           "targets": [
             {
-              "exemplar": true,
-              "expr": "sum(rate(codecache_lookup_matcher_failure_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
-              "interval": "",
-              "legendFormat": "Mismatch",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(compilations_delivery_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])) by (status, reason)",
+              "legendFormat": "Delivery {{status}} ({{reason}})",
+              "range": true,
               "refId": "A"
-            },
-            {
-              "exemplar": true,
-              "expr": "sum(rate(codecache_lookup_matcher_success_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Match",
-              "refId": "B"
             }
           ],
-          "title": "CodeCache Lookup Matcher",
+          "title": "Compilations delivery",
           "type": "timeseries"
         }
       ],
@@ -2079,7 +2861,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
@@ -2520,15 +3302,32 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "lU0wH9jnz"
+                "uid": "$DataSource"
               },
+              "editorMode": "code",
               "exemplar": true,
               "expr": "histogram_quantile($quantile, sum by (le) (increase(gateway_queries_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
               "hide": false,
               "interval": "",
-              "legendFormat": "Q$quantile",
+              "legendFormat": "gateway Q$quantile",
               "queryType": "randomWalk",
+              "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "$DataSource"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(vm_response_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "client Q$quantile",
+              "queryType": "randomWalk",
+              "range": true,
+              "refId": "B"
             }
           ],
           "title": "Queries to VMs - Response time histogram",
@@ -2633,7 +3432,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
@@ -2645,9 +3444,9 @@
       "panels": [
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "${DataSource}"
           },
-          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2658,7 +3457,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 0,
+                "fillOpacity": 10,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
@@ -2698,12 +3497,12 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
+            "h": 8,
             "w": 11,
             "x": 0,
-            "y": 31
+            "y": 98
           },
-          "id": 118,
+          "id": 183,
           "options": {
             "legend": {
               "calcs": [],
@@ -2717,14 +3516,54 @@
           },
           "targets": [
             {
-              "exemplar": true,
-              "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\"}) by (phase)",
-              "interval": "",
-              "legendFormat": "{{phase}}",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "sum(compilations_compilation {kubernetes_namespace=\"$ns\"})",
+              "legendFormat": "{{kubernetes_pod_name}} compilations",
+              "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "sum(compilations_recompilation {kubernetes_namespace=\"$ns\"})",
+              "hide": false,
+              "legendFormat": "{{kubernetes_pod_name}} recompilations",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "sum(compilations_compilation {kubernetes_namespace=\"$ns\"}) + sum(compilations_recompilation {kubernetes_namespace=\"$ns\"})",
+              "hide": false,
+              "legendFormat": "rcd (comp+recomp)",
+              "range": true,
+              "refId": "D"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "sum(compilations_lookup {kubernetes_namespace=\"$ns\"})",
+              "hide": false,
+              "legendFormat": "lookup",
+              "range": true,
+              "refId": "C"
             }
           ],
-          "title": "Pods",
+          "title": "Compilations and Recompilations ",
           "type": "timeseries"
         },
         {
@@ -2784,10 +3623,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
+            "h": 8,
             "w": 13,
             "x": 11,
-            "y": 31
+            "y": 98
           },
           "id": 91,
           "options": {
@@ -2808,9 +3647,9 @@
                 "type": "prometheus",
                 "uid": "${DataSource}"
               },
-              "expr": "container_memory_usage_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"compile-broker-*\"}",
+              "expr": "container_memory_usage_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"compile-broker-*\"}",
               "interval": "",
-              "legendFormat": "{{pod_name}}",
+              "legendFormat": "{{pod}}",
               "refId": "A"
             },
             {
@@ -2819,7 +3658,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"compile-broker-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"compile-broker-*\"})",
               "hide": false,
               "interval": "",
               "legendFormat": "Limit",
@@ -2832,9 +3671,9 @@
         },
         {
           "datasource": {
-            "type": "prometheus",
             "uid": "${DataSource}"
           },
+          "description": "",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2858,7 +3697,7 @@
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "never",
+                "showPoints": "auto",
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
@@ -2880,8 +3719,7 @@
                     "value": 80
                   }
                 ]
-              },
-              "unit": "short"
+              }
             },
             "overrides": []
           },
@@ -2889,63 +3727,30 @@
             "h": 7,
             "w": 11,
             "x": 0,
-            "y": 38
+            "y": 106
           },
-          "id": 119,
+          "id": 118,
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "right"
+              "placement": "bottom"
             },
             "tooltip": {
               "mode": "multi",
               "sort": "none"
             }
           },
-          "pluginVersion": "8.2.6",
           "targets": [
             {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
               "exemplar": true,
-              "expr": "avg(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"compile-broker-*\"}[$__rate_interval]))",
+              "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\"}) by (phase)",
               "interval": "",
-              "legendFormat": "broker total vcores",
-              "range": true,
+              "legendFormat": "{{phase}}",
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "expr": "avg(rate(compiler_process_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
-              "hide": false,
-              "legendFormat": "compiler engine",
-              "range": true,
-              "refId": "C"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=\"compile-broker\"})",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Limit",
-              "range": true,
-              "refId": "B"
             }
           ],
-          "title": "Average CPU Usage",
+          "title": "Pods",
           "type": "timeseries"
         },
         {
@@ -3007,7 +3812,7 @@
             "h": 7,
             "w": 13,
             "x": 11,
-            "y": 38
+            "y": 106
           },
           "id": 114,
           "options": {
@@ -3029,7 +3834,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"compile-broker-*\"}[$__rate_interval])",
+              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"compile-broker-*\"}[$__rate_interval])",
               "interval": "",
               "legendFormat": "{{pod}}",
               "range": true,
@@ -3041,7 +3846,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"compile-broker-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"compile-broker-*\"})",
               "hide": false,
               "interval": "",
               "legendFormat": "Limit",
@@ -3050,6 +3855,209 @@
             }
           ],
           "title": "Per Pod CPU Usage",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 11,
+            "x": 0,
+            "y": 113
+          },
+          "id": 119,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "right"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "avg(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"compile-broker-*\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "broker total vcores",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "expr": "avg(rate(compiler_process_cputime_seconds_sum{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "hide": false,
+              "legendFormat": "compiler engine",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=\"compile-broker\"})",
+              "hide": false,
+              "interval": "",
+              "legendFormat": "Limit",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Average CPU Usage",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "uid": "$DataSource"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 13,
+            "x": 11,
+            "y": 113
+          },
+          "id": 36,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "right"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "expr": "compiler_process_active{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+              "interval": "",
+              "legendFormat": "{{kubernetes_pod_name}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Active Compiler Instances",
           "type": "timeseries"
         },
         {
@@ -3112,7 +4120,7 @@
             "h": 7,
             "w": 11,
             "x": 0,
-            "y": 45
+            "y": 120
           },
           "id": 129,
           "options": {
@@ -3134,7 +4142,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Receive",
@@ -3146,7 +4154,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Transmit",
@@ -3215,9 +4223,9 @@
             "h": 7,
             "w": 13,
             "x": 11,
-            "y": 45
+            "y": 120
           },
-          "id": 36,
+          "id": 120,
           "options": {
             "legend": {
               "calcs": [],
@@ -3225,20 +4233,21 @@
               "placement": "right"
             },
             "tooltip": {
-              "mode": "single",
+              "mode": "multi",
               "sort": "none"
             }
           },
           "pluginVersion": "8.2.6",
           "targets": [
             {
-              "expr": "compiler_process_active{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+              "exemplar": true,
+              "expr": "rate(compilations_finished_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])",
               "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}}",
+              "legendFormat": "{{kubernetes_pod_name}} [{{result}}]",
               "refId": "A"
             }
           ],
-          "title": "Active Compiler Instances",
+          "title": "Compilations finished per second",
           "type": "timeseries"
         },
         {
@@ -3300,7 +4309,7 @@
             "h": 7,
             "w": 11,
             "x": 0,
-            "y": 52
+            "y": 127
           },
           "id": 135,
           "options": {
@@ -3323,7 +4332,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Reads",
@@ -3337,7 +4346,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"compile-broker-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Writes",
@@ -3346,185 +4355,6 @@
             }
           ],
           "title": "Disk Operations",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "$DataSource"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 13,
-            "x": 11,
-            "y": 52
-          },
-          "id": 120,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "rate(compilations_finished_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])",
-              "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}} [{{result}}]",
-              "refId": "A"
-            }
-          ],
-          "title": "Compilations finished per second",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 11,
-            "x": 0,
-            "y": 59
-          },
-          "id": 155,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "histogram_quantile($quantile, sum by (le) (increase(broker_registry_update_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
-              "interval": "",
-              "legendFormat": "Q$quantile",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Broker announcement latency",
           "type": "timeseries"
         },
         {
@@ -3587,7 +4417,7 @@
             "h": 7,
             "w": 13,
             "x": 11,
-            "y": 59
+            "y": 127
           },
           "id": 154,
           "options": {
@@ -3618,6 +4448,193 @@
             }
           ],
           "title": "Broker announcement rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 11,
+            "x": 0,
+            "y": 134
+          },
+          "id": 155,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "right"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(broker_registry_update_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "interval": "",
+              "legendFormat": "Q$quantile",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Broker announcement latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": true,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ops"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 13,
+            "x": 11,
+            "y": 134
+          },
+          "id": 162,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "right"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "sum(rate(compiler_artifact_upload_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "{{kubernetes_pod_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Compiler artifact upload rate",
           "type": "timeseries"
         },
         {
@@ -3681,7 +4698,7 @@
             "h": 7,
             "w": 11,
             "x": 0,
-            "y": 66
+            "y": 141
           },
           "id": 163,
           "options": {
@@ -3775,9 +4792,9 @@
             "h": 7,
             "w": 13,
             "x": 11,
-            "y": 66
+            "y": 141
           },
-          "id": 162,
+          "id": 176,
           "options": {
             "legend": {
               "calcs": [],
@@ -3798,14 +4815,108 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(compiler_artifact_upload_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+              "expr": "sum(rate(compiler_engine_download_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
               "interval": "",
               "legendFormat": "{{kubernetes_pod_name}}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Compiler artifact upload rate",
+          "title": "Compiler engine download rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 11,
+            "x": 0,
+            "y": 148
+          },
+          "id": 175,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "right"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "8.2.6",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DataSource}"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "histogram_quantile($quantile, sum by (le) (increase(compiler_engine_download_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+              "interval": "",
+              "legendFormat": "{{kubernetes_pod_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Compiler engine download latency",
           "type": "timeseries"
         }
       ],
@@ -3816,7 +4927,7 @@
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
@@ -3901,7 +5012,7 @@
           "targets": [
             {
               "exemplar": true,
-              "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"cache-.*\"}) by (phase)",
+              "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"cache-.*\"}) by (phase)",
               "interval": "",
               "legendFormat": "{{phase}}",
               "refId": "A"
@@ -3991,7 +5102,7 @@
                 "type": "prometheus",
                 "uid": "${DataSource}"
               },
-              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container_name=~\"cache-*\"}[$__rate_interval])",
+              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"cache-*\"}[$__rate_interval])",
               "hide": false,
               "interval": "",
               "legendFormat": "{{pod}}",
@@ -4004,7 +5115,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"cache-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"cache-*\"})",
               "hide": false,
               "interval": "",
               "legendFormat": "Limit",
@@ -4098,7 +5209,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"cache-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"cache-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Receive",
@@ -4110,7 +5221,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"cache-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"cache-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Transmit",
@@ -4240,10 +5351,10 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "container_memory_usage_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"cache-*\"}",
+              "expr": "container_memory_usage_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"cache-*\"}",
               "hide": false,
               "interval": "",
-              "legendFormat": "{{pod_name}} - used by container",
+              "legendFormat": "{{pod}} - used by container",
               "refId": "C"
             },
             {
@@ -4252,7 +5363,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"cache*\"})",
+              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"cache*\"})",
               "hide": false,
               "legendFormat": "Limit",
               "range": true,
@@ -4267,10 +5378,10 @@
       "type": "row"
     },
     {
-      "collapsed": true,
+      "collapsed": false,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
@@ -4279,981 +5390,1424 @@
         "y": 32
       },
       "id": 2,
-      "panels": [
-        {
-          "datasource": {
-            "uid": "${DataSource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 33
-          },
-          "id": 121,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"gateway-.*\"}) by (phase)",
-              "interval": "",
-              "legendFormat": "{{phase}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Pods",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 33
-          },
-          "id": 4,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.5.13",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"}[$__rate_interval])",
-              "interval": "",
-              "legendFormat": "{{pod_name}}",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"})",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Limit",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Per Pod CPU Usage",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 40
-          },
-          "id": 122,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "hidden",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "exemplar": true,
-              "expr": "avg(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"}[$__rate_interval]))",
-              "interval": "",
-              "legendFormat": "vcores",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"})",
-              "hide": false,
-              "legendFormat": "Limit",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Average CPU Usage (for autoscaler)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 40
-          },
-          "id": 8,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.5.13",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "exemplar": true,
-              "expr": "container_memory_usage_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"}",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "{{pod_name}}",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"gateway-*\"})",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Limit",
-              "range": true,
-              "refId": "B"
-            }
-          ],
-          "title": "Per Pod Memory Usage",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "binBps"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 47
-          },
-          "id": 131,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "exemplar": true,
-              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"gateway-.*\"}[$__rate_interval]))",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Receive",
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "exemplar": true,
-              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"gateway-.*\"}[$__rate_interval]))",
-              "hide": false,
-              "interval": "",
-              "legendFormat": "Transmit",
-              "refId": "A"
-            }
-          ],
-          "title": "Pod network traffic",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "$DataSource"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 40,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 47
-          },
-          "id": 123,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "exemplar": true,
-              "expr": "clients_connected{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
-              "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}}",
-              "refId": "A"
-            }
-          ],
-          "title": "Per Pod Clients Connected",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "ops"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 54
-          },
-          "id": 156,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "rate(broker_registry_refresh_duration_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])",
-              "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Broker capacity refresh rate",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "description": "",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 54
-          },
-          "id": 158,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "histogram_quantile($quantile, sum by (le) (increase(broker_registry_refresh_duration_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
-              "interval": "",
-              "legendFormat": "Q$quantile",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Broker capacity refresh latency",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 61
-          },
-          "id": 157,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "brokers_available{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
-              "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Brokers available",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DataSource}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": true,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 61
-          },
-          "id": 159,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "right"
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "8.2.6",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DataSource}"
-              },
-              "editorMode": "code",
-              "exemplar": true,
-              "expr": "queue_capacity_available{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
-              "interval": "",
-              "legendFormat": "{{kubernetes_pod_name}}",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Broker capacity available",
-          "type": "timeseries"
-        }
-      ],
+      "panels": [],
       "title": "Details: gateway",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "id": 165,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (reason)(rate(gateway_compilationQueue_add_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval]))",
+          "legendFormat": "reason - {{reason}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Compilation request queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "id": 166,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "gateway_requestQueue{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+          "legendFormat": "{{kubernetes_pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Compilation request queue size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "id": 171,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (status) (rate(grpc_call_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",method=\"azul.remotecompiler.compilebroker.api.CompilationDispatcher/Dispatch\"}[$__rate_interval]))",
+          "legendFormat": "{{status}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "CompilationDispatcher call rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 39
+      },
+      "id": 172,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile($quantile, sum by (le,status) (rate(grpc_call_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",method=\"azul.remotecompiler.compilebroker.api.CompilationDispatcher/Dispatch\"}[$__rate_interval])))",
+          "legendFormat": "{{status}} Q$quantile",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "CompilationDispatcher call latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "uid": "${DataSource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
+      "id": 121,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "sum(kube_pod_status_phase{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"gateway-.*\"}) by (phase)",
+          "interval": "",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Pods",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.13",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "{{pod}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"})",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Limit",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Per Pod CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "id": 122,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "hidden",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "exemplar": true,
+          "expr": "avg(rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"}[$__rate_interval]))",
+          "interval": "",
+          "legendFormat": "vcores",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"})",
+          "hide": false,
+          "legendFormat": "Limit",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Average CPU Usage (for autoscaler)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.5.13",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "exemplar": true,
+          "expr": "container_memory_usage_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"}",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"gateway-*\"})",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Limit",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Per Pod Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "binBps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 131,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "exemplar": true,
+          "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"gateway-.*\"}[$__rate_interval]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Receive",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "exemplar": true,
+          "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"gateway-.*\"}[$__rate_interval]))",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "Transmit",
+          "refId": "A"
+        }
+      ],
+      "title": "Pod network traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "uid": "$DataSource"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 59
+      },
+      "id": 123,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "clients_connected{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+          "interval": "",
+          "legendFormat": "{{kubernetes_pod_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Per Pod Clients Connected",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "id": 156,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "rate(broker_registry_refresh_duration_seconds_count{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])",
+          "interval": "",
+          "legendFormat": "{{kubernetes_pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Broker capacity refresh rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "id": 158,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "histogram_quantile($quantile, sum by (le) (increase(broker_registry_refresh_duration_seconds_bucket{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])))",
+          "interval": "",
+          "legendFormat": "Q$quantile",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Broker capacity refresh latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      },
+      "id": 157,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "brokers_available{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+          "interval": "",
+          "legendFormat": "{{kubernetes_pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Brokers available",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      },
+      "id": 159,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "8.2.6",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "exemplar": true,
+          "expr": "queue_capacity_available{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}",
+          "interval": "",
+          "legendFormat": "{{kubernetes_pod_name}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Broker capacity available",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DataSource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 80
+      },
+      "id": 187,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DataSource}"
+          },
+          "editorMode": "code",
+          "expr": "sum(gateway_compilationQueue_inflight{cluster=\"$cluster\",kubernetes_namespace=\"$ns\"}[$__rate_interval])",
+          "legendFormat": "In Flight",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Compilations in flight",
+      "type": "timeseries"
     },
     {
       "collapsed": true,
       "datasource": {
         "type": "prometheus",
-        "uid": "bVuQTRanz"
+        "uid": "$DataSource"
       },
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 88
       },
       "id": 126,
       "panels": [
@@ -5338,9 +6892,9 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "container_memory_working_set_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"db-*\"}",
+              "expr": "container_memory_working_set_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"db-*\"}",
               "interval": "",
-              "legendFormat": "{{pod_name}}",
+              "legendFormat": "{{pod}}",
               "refId": "A"
             },
             {
@@ -5350,7 +6904,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"db-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"db-*\"})",
               "hide": false,
               "interval": "",
               "legendFormat": "Limit",
@@ -5402,7 +6956,7 @@
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "8.5.5",
+          "pluginVersion": "8.5.14",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -5417,9 +6971,9 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container_name=~\"db-*\"}[$__rate_interval])",
+              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"db-*\"}[$__rate_interval])",
               "interval": "",
-              "legendFormat": "{{pod_name}} ",
+              "legendFormat": "{{pod}} ",
               "refId": "A"
             },
             {
@@ -5428,7 +6982,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"db-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"db-*\"})",
               "hide": false,
               "legendFormat": "Limit",
               "range": true,
@@ -5549,7 +7103,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Receive",
@@ -5561,7 +7115,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Transmit",
@@ -5653,7 +7207,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Reads",
@@ -5667,7 +7221,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"db-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Writes",
@@ -5688,7 +7242,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 89
       },
       "id": 145,
       "panels": [
@@ -5752,7 +7306,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 119
+            "y": 35
           },
           "id": 146,
           "options": {
@@ -5773,9 +7327,9 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "container_memory_working_set_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"storage-*\"}",
+              "expr": "container_memory_working_set_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"storage-*\"}",
               "interval": "",
-              "legendFormat": "{{pod_name}}",
+              "legendFormat": "{{pod}}",
               "refId": "A"
             },
             {
@@ -5785,7 +7339,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"storage-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_memory_bytes{cluster=\"$cluster\",namespace=\"$ns\",container=~\"storage-*\"})",
               "hide": false,
               "interval": "",
               "legendFormat": "Limit",
@@ -5855,7 +7409,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 119
+            "y": 35
           },
           "id": 147,
           "options": {
@@ -5877,9 +7431,9 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container_name=~\"storage-*\"}[$__rate_interval])",
+              "expr": "rate(container_cpu_usage_seconds_total{cluster=\"$cluster\",namespace=\"$ns\",container=~\"storage-*\"}[$__rate_interval])",
               "interval": "",
-              "legendFormat": "{{pod_name}} ",
+              "legendFormat": "{{pod}} ",
               "refId": "A"
             },
             {
@@ -5888,7 +7442,7 @@
                 "uid": "${DataSource}"
               },
               "editorMode": "code",
-              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",container=~\"storage-*\"})",
+              "expr": "max(kube_pod_container_resource_limits_cpu_cores{cluster=\"$cluster\",namespace=\"$ns\",container=~\"storage-*\"})",
               "hide": false,
               "legendFormat": "Limit",
               "range": true,
@@ -5958,7 +7512,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 127
+            "y": 43
           },
           "id": 148,
           "options": {
@@ -5980,7 +7534,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_receive_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Receive",
@@ -5992,7 +7546,7 @@
                 "uid": "${DataSource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_network_transmit_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Transmit",
@@ -6061,7 +7615,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 127
+            "y": 43
           },
           "id": 149,
           "options": {
@@ -6084,7 +7638,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_reads_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Reads",
@@ -6098,7 +7652,7 @@
               },
               "editorMode": "code",
               "exemplar": true,
-              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",kubernetes_namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
+              "expr": "sum(rate(container_fs_writes_bytes_total{cluster=\"$cluster\",namespace=\"$ns\",pod=~\"storage-.*\"}[$__rate_interval]))",
               "hide": false,
               "interval": "",
               "legendFormat": "Writes",
@@ -6114,7 +7668,7 @@
       "type": "row"
     }
   ],
-  "refresh": false,
+  "refresh": "20s",
   "schemaVersion": 36,
   "style": "dark",
   "tags": [],
@@ -6122,7 +7676,7 @@
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "Sauron",
           "value": "Sauron"
         },
@@ -6149,7 +7703,7 @@
           "type": "prometheus",
           "uid": "$DataSource"
         },
-        "definition": "label_values(container_cpu_usage_seconds_total{container=\"compile-broker\"}, cluster)",
+        "definition": "label_values(container_cpu_usage_seconds_total{container=\"gateway\"}, cluster)",
         "hide": 0,
         "includeAll": false,
         "label": "Cluster",
@@ -6157,8 +7711,8 @@
         "name": "cluster",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_usage_seconds_total{container=\"compile-broker\"}, cluster)",
-          "refId": "Prom-demo(cnc-dev)-cluster-Variable-Query"
+          "query": "label_values(container_cpu_usage_seconds_total{container=\"gateway\"}, cluster)",
+          "refId": "StandardVariableQuery"
         },
         "refresh": 2,
         "regex": "",
@@ -6171,15 +7725,15 @@
       },
       {
         "current": {
-          "selected": true,
-          "text": "perflab-aws-1667260986-worker002",
-          "value": "perflab-aws-1667260986-worker002"
+          "selected": false,
+          "text": "buildmaster-perflab-kube-1680566530-cnc-worker002",
+          "value": "buildmaster-perflab-kube-1680566530-cnc-worker002"
         },
         "datasource": {
           "type": "prometheus",
           "uid": "$DataSource"
         },
-        "definition": "label_values(container_cpu_usage_seconds_total{cluster=\"$cluster\",container=\"compile-broker\"}, namespace)",
+        "definition": "label_values(container_cpu_usage_seconds_total{cluster=\"$cluster\",container=\"gateway\"}, namespace)",
         "hide": 0,
         "includeAll": false,
         "label": "Namespace",
@@ -6187,8 +7741,8 @@
         "name": "ns",
         "options": [],
         "query": {
-          "query": "label_values(container_cpu_usage_seconds_total{cluster=\"$cluster\",container=\"compile-broker\"}, namespace)",
-          "refId": "Prom-demo(cnc-dev)-ns-Variable-Query"
+          "query": "label_values(container_cpu_usage_seconds_total{cluster=\"$cluster\",container=\"gateway\"}, namespace)",
+          "refId": "StandardVariableQuery"
         },
         "refresh": 2,
         "regex": "",
@@ -6244,6 +7798,6 @@
   "timezone": "",
   "title": "Prime-CNC dashboard",
   "uid": "iCh4I48nk",
-  "version": 93,
+  "version": 141,
   "weekStart": ""
 }
